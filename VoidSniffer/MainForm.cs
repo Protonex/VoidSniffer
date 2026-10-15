@@ -26,6 +26,7 @@ namespace VoidSniffer
         private bool _expanding;
         private CancellationTokenSource _enrichCts;
         private CancellationTokenSource _autoExpandCts;
+        private string _autoExpandRootPath;
         private readonly Dictionary<string, Tuple<long, long>> _countCache =
             new Dictionary<string, Tuple<long, long>>(StringComparer.OrdinalIgnoreCase);
 
@@ -193,7 +194,7 @@ namespace VoidSniffer
                 SetStatus(string.Format("{0} — узлов: {1:N0}, объём: {2}{3}",
                     normalized, loader.NodeCount, FormatSize(loader.Root.TotalSize), suffix));
 
-                StartAutoExpansion();
+                StartAutoExpansion(_fullRoot);
             }
             catch (OperationCanceledException)
             {
@@ -320,31 +321,43 @@ namespace VoidSniffer
         }
 
         /// <summary>
-        /// Expands the largest folders in the background, breadth-first and depth-limited,
-        /// so subfolders render recursively inside the tiles. Bounded by a time budget and
-        /// the folder size threshold; restarting from a new view cancels the previous run.
+        /// Expands the largest folders under <paramref name="root"/> in the background,
+        /// breadth-first and depth-limited, so subfolders render recursively from the
+        /// current level downwards. Bounded by a time budget and the folder size threshold.
+        /// A run already in progress for the same root is left alone; a different root
+        /// cancels it.
         /// </summary>
-        private void StartAutoExpansion()
+        private void StartAutoExpansion(FileNode root)
         {
+            if (root == null || _loader == null) return;
+
+            string path = root.FullPath;
+
             if (_autoExpandCts != null)
             {
+                if (string.Equals(_autoExpandRootPath, path, StringComparison.OrdinalIgnoreCase))
+                {
+                    return; // already expanding this subtree
+                }
+
                 try { _autoExpandCts.Cancel(); }
                 catch (ObjectDisposedException) { }
                 _autoExpandCts = null;
             }
 
-            if (_fullRoot == null || _loader == null) return;
-
             var cts = new CancellationTokenSource();
             _autoExpandCts = cts;
-            _ = AutoExpandAsync(_fullRoot, cts);
+            _autoExpandRootPath = path;
+            _ = AutoExpandAsync(root, cts);
         }
 
         private async Task AutoExpandAsync(FileNode root, CancellationTokenSource cts)
         {
             CancellationToken token = cts.Token;
             long threshold = AutoExpansionPolicy.SizeThreshold(root.TotalSize);
-            int maxDepth = AutoExpansionPolicy.DefaultMaxDepth;
+
+            // Depth limit is relative to the current level, so drilling in keeps nesting.
+            int maxDepth = root.Depth + AutoExpansionPolicy.DefaultMaxDepth;
             const int budget = 300;
 
             var pending = new List<FileNode>();
@@ -400,6 +413,12 @@ namespace VoidSniffer
             }
 
             RefreshTreemapAfterExpansion();
+
+            if (ReferenceEquals(_autoExpandCts, cts))
+            {
+                _autoExpandCts = null;
+                _autoExpandRootPath = null;
+            }
         }
 
         private void RefreshTreemapAfterExpansion()
@@ -533,7 +552,14 @@ namespace VoidSniffer
             if (_loader == null || focus == null || !focus.IsFolder) return;
 
             FileNode canonical = FindByPath(_fullRoot, focus.FullPath);
-            if (canonical == null || _loader.IsExpanded(canonical)) return;
+            if (canonical == null) return;
+
+            if (_loader.IsExpanded(canonical))
+            {
+                // Already loaded: just nest deeper from this level.
+                StartAutoExpansion(canonical);
+                return;
+            }
 
             _ = ExpandFolderAsync(canonical);
         }
@@ -549,7 +575,7 @@ namespace VoidSniffer
                 CancellationToken token = _cts != null ? _cts.Token : CancellationToken.None;
                 if (await _loader.ExpandAsync(folder, token))
                 {
-                    RefreshView();
+                    RefreshTreemapAfterExpansion();
                 }
             }
             catch (OperationCanceledException)
@@ -569,6 +595,9 @@ namespace VoidSniffer
             {
                 _expanding = false;
             }
+
+            // Nest deeper from the folder the user just entered.
+            StartAutoExpansion(folder);
         }
 
         private void Treemap_BlockActivated(object sender, TreemapNodeEventArgs e)
@@ -591,6 +620,7 @@ namespace VoidSniffer
                 try { _autoExpandCts.Cancel(); }
                 catch (ObjectDisposedException) { }
                 _autoExpandCts = null;
+                _autoExpandRootPath = null;
             }
 
             if (_enrichCts != null)
