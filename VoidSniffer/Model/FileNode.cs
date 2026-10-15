@@ -40,6 +40,18 @@ namespace VoidSniffer.Model
             get { return FileCount >= 0 && FolderCount >= 0; }
         }
 
+        /// <summary>
+        /// Allocated size (space occupied on disk) of this node, or -1 when unknown.
+        /// Exact for files; an estimate based on the volume cluster size for folders.
+        /// </summary>
+        public long OnDiskSize { get; set; }
+
+        /// <summary>True when the allocated size has been resolved.</summary>
+        public bool HasOnDisk
+        {
+            get { return OnDiskSize >= 0; }
+        }
+
         public int Depth { get; set; }
 
         public FileNode Parent { get; set; }

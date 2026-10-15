@@ -26,13 +26,21 @@ namespace VoidSniffer.Services
     /// </remarks>
     public sealed class ProgressiveTreeLoader
     {
-        private readonly EverythingDataProvider _provider;
+        private readonly IEverythingFileSource _provider;
+        private readonly IDiskUsageInfo _diskUsage;
         private readonly HashSet<string> _expanded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        public ProgressiveTreeLoader(EverythingDataProvider provider)
+        public ProgressiveTreeLoader(IEverythingFileSource provider)
+            : this(provider, new DiskUsageInfo())
+        {
+        }
+
+        public ProgressiveTreeLoader(IEverythingFileSource provider, IDiskUsageInfo diskUsage)
         {
             if (provider == null) throw new ArgumentNullException("provider");
+            if (diskUsage == null) throw new ArgumentNullException("diskUsage");
             _provider = provider;
+            _diskUsage = diskUsage;
         }
 
         /// <summary>Root of the tree built by the last <see cref="LoadRootAsync"/> call.</summary>
@@ -126,7 +134,7 @@ namespace VoidSniffer.Services
         /// the index. A folder's size is the exact recursive total, so no re-aggregation
         /// is required and ancestors stay correct without walking back up the tree.
         /// </summary>
-        private static int Attach(FileNode folder, List<FileSystemItem> items)
+        private int Attach(FileNode folder, List<FileSystemItem> items)
         {
             int added = 0;
             for (int i = 0; i < items.Count; i++)
@@ -139,6 +147,7 @@ namespace VoidSniffer.Services
                 if (item.IsFolder && PathUtil.EqualsPath(fullPath, folder.FullPath)) continue;
 
                 long size = item.Size > 0 ? item.Size : 0;
+                int cluster = _diskUsage.GetClusterSize(fullPath);
                 var node = new FileNode
                 {
                     Name = string.IsNullOrEmpty(item.Name) ? PathUtil.GetName(fullPath) : item.Name,
@@ -150,6 +159,13 @@ namespace VoidSniffer.Services
                     Parent = folder,
                     Depth = folder.Depth + 1
                 };
+
+                // Files have an exact allocated size; folders only have an estimate, which
+                // needs their recursive file count and is therefore filled in later.
+                if (!item.IsFolder)
+                {
+                    node.OnDiskSize = DiskUsage.AllocatedFileSize(size, cluster);
+                }
 
                 folder.Children.Add(node);
                 added++;

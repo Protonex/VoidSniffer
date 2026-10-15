@@ -18,6 +18,7 @@ namespace VoidSniffer
         private readonly EverythingDataProvider _provider = new EverythingDataProvider();
         private readonly NavigationController _navigation = new NavigationController();
         private readonly FilterService _filterService = new FilterService();
+        private readonly DiskUsageInfo _diskUsage = new DiskUsageInfo();
 
         private CancellationTokenSource _cts;
         private FileNode _fullRoot;
@@ -391,12 +392,15 @@ namespace VoidSniffer
                     _countCache[node.FullPath] = counts;
                     node.FileCount = counts.Item1;
                     node.FolderCount = counts.Item2;
+                    node.OnDiskSize = DiskUsage.EstimatedFolderAllocated(
+                        node.TotalSize, counts.Item1, _diskUsage.GetClusterSize(node.FullPath));
 
                     FileNode canonical = FindByPath(_fullRoot, node.FullPath);
                     if (canonical != null && !ReferenceEquals(canonical, node))
                     {
                         canonical.FileCount = counts.Item1;
                         canonical.FolderCount = counts.Item2;
+                        canonical.OnDiskSize = node.OnDiskSize;
                     }
 
                     repainted = true;

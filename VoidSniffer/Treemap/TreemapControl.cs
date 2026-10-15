@@ -216,11 +216,12 @@ namespace VoidSniffer.Treemap
                 : rect.Height;
             if (available < lineH) return 0;
 
-            DrawLabelLine(g, block.Node.Name, new Rectangle(left, rect.Y + 1, width, lineH), text);
+            DrawLabelLine(g, NodeLabelFormatter.DescribeName(block.Node),
+                new Rectangle(left, rect.Y + 1, width, lineH), text);
 
             if (available >= lineH * 2)
             {
-                DrawLabelLine(g, DescribeNode(block.Node),
+                DrawLabelLine(g, NodeLabelFormatter.DescribeDetails(block.Node),
                     new Rectangle(left, rect.Y + 1 + lineH, width, lineH), subText);
             }
 
@@ -239,53 +240,6 @@ namespace VoidSniffer.Treemap
                 color,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine |
                 TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
-        }
-
-        /// <summary>Second label line: size and, for folders, recursive file/folder counts.</summary>
-        private static string DescribeNode(FileNode node)
-        {
-            string size = FormatSize(node.TotalSize);
-            if (!node.IsFolder || !node.HasCounts)
-            {
-                return size;
-            }
-
-            return string.Format("{0}  ·  {1}, {2}",
-                size,
-                FormatCount(node.FolderCount, "папка", "папки", "папок"),
-                FormatCount(node.FileCount, "файл", "файла", "файлов"));
-        }
-
-        private static string FormatCount(long value, string one, string few, string many)
-        {
-            return value.ToString("N0", CultureInfo.CurrentCulture) + " " + Plural(value, one, few, many);
-        }
-
-        private static string Plural(long value, string one, string few, string many)
-        {
-            long mod100 = value % 100;
-            long mod10 = value % 10;
-            if (mod10 == 1 && mod100 != 11) return one;
-            if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-            return many;
-        }
-
-        private static string FormatSize(long bytes)
-        {
-            if (bytes < 1024) return bytes.ToString("N0", CultureInfo.CurrentCulture) + " Б";
-
-            string[] units = { "КБ", "МБ", "ГБ", "ТБ", "ПБ" };
-            double value = bytes;
-            int unit = -1;
-            do
-            {
-                value /= 1024.0;
-                unit++;
-            }
-            while (value >= 1024.0 && unit < units.Length - 1);
-
-            string format = value >= 100 ? "0" : "0.#";
-            return value.ToString(format, CultureInfo.CurrentCulture) + " " + units[unit];
         }
 
         /// <summary>

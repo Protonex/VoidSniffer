@@ -54,12 +54,14 @@
     <Compile Include="Model\FileNode.cs" />
     <Compile Include="Model\FileSystemItem.cs" />
     <Compile Include="Model\FilterCriteria.cs" />
-    <Compile Include="Services\EverythingDataProvider.cs" />
-    <Compile Include="Services\FileSystemTreeBuilder.cs" />
+    <Compile Include="Services\DiskUsageInfo.cs" />
+    <Compile Include="Services\EverythingDataProvider.cs" />    <Compile Include="Services\FileSystemTreeBuilder.cs" />
     <Compile Include="Services\FilterService.cs" />
     <Compile Include="Services\NavigationController.cs" />
+    <Compile Include="Services\IEverythingFileSource.cs" />
     <Compile Include="Services\PathUtil.cs" />
     <Compile Include="Services\ProgressiveTreeLoader.cs" />
+    <Compile Include="Treemap\NodeLabelFormatter.cs" />
     <Compile Include="Treemap\TreemapBlock.cs" />
     <Compile Include="Treemap\TreemapColorizer.cs" />
     <Compile Include="Treemap\TreemapControl.cs" />

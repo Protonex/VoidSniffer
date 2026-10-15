@@ -11,7 +11,7 @@ namespace VoidSniffer.Services
     /// Retrieves file system contents for a folder from the Everything index
     /// (no direct disk scanning).
     /// </summary>
-    public sealed class EverythingDataProvider
+    public sealed class EverythingDataProvider : IEverythingFileSource
     {
         private readonly EverythingClient _client;
 
