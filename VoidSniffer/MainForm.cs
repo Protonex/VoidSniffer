@@ -356,6 +356,7 @@ namespace VoidSniffer
 
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             int expanded = 0;
+            long lastRefreshMs = 0;
 
             while (pending.Count > 0 && expanded < budget && stopwatch.ElapsedMilliseconds < 12000)
             {
@@ -389,14 +390,27 @@ namespace VoidSniffer
                     if (AutoExpansionPolicy.IsEligible(child, threshold, maxDepth)) pending.Add(child);
                 }
 
-                if (ReferenceEquals(_navigation.Root, _fullRoot))
+                // The cached layout must be discarded so the new nested blocks show up;
+                // throttle the full rebuild so a long expansion run stays responsive.
+                if (stopwatch.ElapsedMilliseconds - lastRefreshMs >= 200)
                 {
-                    treemap.Invalidate();
+                    lastRefreshMs = stopwatch.ElapsedMilliseconds;
+                    RefreshTreemapAfterExpansion();
                 }
-                else
-                {
-                    RefreshView();
-                }
+            }
+
+            RefreshTreemapAfterExpansion();
+        }
+
+        private void RefreshTreemapAfterExpansion()
+        {
+            if (ReferenceEquals(_navigation.Root, _fullRoot))
+            {
+                treemap.RefreshLayout();
+            }
+            else
+            {
+                RefreshView();
             }
         }
 

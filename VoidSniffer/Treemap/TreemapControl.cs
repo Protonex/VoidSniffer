@@ -154,6 +154,17 @@ namespace VoidSniffer.Treemap
             Invalidate();
         }
 
+        /// <summary>
+        /// Recomputes the layout after the current content tree's children changed (e.g. a
+        /// lazy/background expansion) and repaints. Unlike a plain repaint this also
+        /// discards the cached layout, so newly loaded nested blocks actually appear.
+        /// </summary>
+        public void RefreshLayout()
+        {
+            _cache.Invalidate();
+            Invalidate();
+        }
+
         public void Select(FileNode node)
         {
             if (ReferenceEquals(_selected, node)) return;
