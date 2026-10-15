@@ -15,8 +15,8 @@ namespace VoidSniffer.Treemap
         /// <summary>Warm cream backdrop between tiles.</summary>
         public static readonly Color Background = Color.FromArgb(250, 246, 234);
 
-        /// <summary>Border shared by every tile.</summary>
-        public static readonly Color Border = Color.FromArgb(180, 158, 128);
+        /// <summary>Border shared by every tile (dark enough to separate them clearly).</summary>
+        public static readonly Color Border = Color.FromArgb(96, 76, 48);
 
         public const int PaletteSize = 12;
 

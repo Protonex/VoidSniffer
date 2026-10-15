@@ -8,7 +8,7 @@
             MaxDepth = 8;
             MinContainerSize = 18f;
             TitleHeight = 26f;
-            Padding = 1f;
+            Padding = 3f;
         }
 
         /// <summary>Maximum nesting depth that is rendered.</summary>
