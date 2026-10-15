@@ -325,22 +325,36 @@ namespace VoidSniffer.Treemap
 
             if (block.Node.IsFolder)
             {
-                // Name top-left, then details centered in the remaining width.
-                var nameRect = new Rectangle(rect.X + inset, rect.Y + 1, rect.Width - (inset * 2), nameH);
-                DrawLabelLine(g, _labelFont, NodeLabelFormatter.DescribeName(block.Node), nameRect, text,
-                    TextFormatFlags.Left);
+                // Folders: name at the left and the size at the right of a single header
+                // line. A second line would overlap the nested tiles drawn below the header.
+                int strip = Math.Min(rect.Height, (int)_options.TitleHeight);
+                if (strip < nameH) return 0;
 
-                if (rect.Width >= 60 && rect.Height >= nameH + detailH + 3)
+                string name = NodeLabelFormatter.DescribeName(block.Node);
+                string size = NodeLabelFormatter.DescribeDetails(block.Node);
+
+                int available = rect.Width - (inset * 2);
+                int sizeWidth = TextRenderer.MeasureText(g, size, _labelFont).Width;
+                int sizeReserve = sizeWidth + 6;
+
+                if (sizeReserve < available - 16)
                 {
-                    var detailRect = new Rectangle(rect.X + inset, rect.Y + 1 + nameH,
-                        rect.Width - (inset * 2), detailH);
-                    DrawLabelLine(g, _detailFont, NodeLabelFormatter.DescribeDetails(block.Node), detailRect, subText,
-                        TextFormatFlags.HorizontalCenter);
+                    var sizeRect = new Rectangle(rect.Right - inset - sizeWidth, rect.Y + 1, sizeWidth, nameH);
+                    DrawLabelLine(g, _labelFont, size, sizeRect, text, TextFormatFlags.Right);
+
+                    int nameWidth = available - sizeReserve;
+                    DrawLabelLine(g, _labelFont, name,
+                        new Rectangle(rect.X + inset, rect.Y + 1, nameWidth, nameH), text, TextFormatFlags.Left);
+                }
+                else
+                {
+                    DrawLabelLine(g, _labelFont, name,
+                        new Rectangle(rect.X + inset, rect.Y + 1, available, nameH), text, TextFormatFlags.Left);
                 }
             }
             else
             {
-                // Files: name centered, details centered below.
+                // Files have no nested tiles, so name and size may be centered on two lines.
                 var nameRect = new Rectangle(rect.X + inset, rect.Y + 1, rect.Width - (inset * 2), nameH);
                 DrawLabelLine(g, _labelFont, NodeLabelFormatter.DescribeName(block.Node), nameRect, text,
                     TextFormatFlags.HorizontalCenter);

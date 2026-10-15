@@ -7,7 +7,7 @@
         {
             MaxDepth = 8;
             MinContainerSize = 18f;
-            TitleHeight = 26f;
+            TitleHeight = 16f;
             Padding = 3f;
         }
 
