@@ -19,12 +19,12 @@ namespace VoidSniffer.Treemap
             if (root == null || root.Children.Count == 0) return blocks;
             if (bounds.Width <= 2 || bounds.Height <= 2) return blocks;
 
-            LayoutNode(root, new RectangleF(bounds.X, bounds.Y, bounds.Width, bounds.Height), 0, blocks, options);
+            LayoutNode(root, new RectangleF(bounds.X, bounds.Y, bounds.Width, bounds.Height), 0, 0, blocks, options);
             return blocks;
         }
 
         private static void LayoutNode(
-            FileNode node, RectangleF rect, int depth, List<TreemapBlock> blocks, TreemapOptions options)
+            FileNode node, RectangleF rect, int depth, int colorSeed, List<TreemapBlock> blocks, TreemapOptions options)
         {
             var children = new List<FileNode>();
             for (int i = 0; i < node.Children.Count; i++)
@@ -52,17 +52,36 @@ namespace VoidSniffer.Treemap
             {
                 FileNode child = children[i];
                 RectangleF childRect = rects[i];
-                blocks.Add(new TreemapBlock { Node = child, Bounds = childRect, Depth = depth });
+                if (!IsUsable(childRect)) continue;
+
+                int colorIndex = depth == 0 ? i : colorSeed;
+                blocks.Add(new TreemapBlock
+                {
+                    Node = child,
+                    Bounds = childRect,
+                    Depth = depth,
+                    ColorIndex = colorIndex
+                });
 
                 if (child.IsFolder && child.Children.Count > 0 && depth + 1 < options.MaxDepth)
                 {
                     RectangleF inner = InsetForTitle(childRect, options);
                     if (inner.Width >= options.MinContainerSize && inner.Height >= options.MinContainerSize)
                     {
-                        LayoutNode(child, inner, depth + 1, blocks, options);
+                        LayoutNode(child, inner, depth + 1, colorIndex, blocks, options);
                     }
                 }
             }
+        }
+
+        /// <summary>True when a rectangle is finite and has a positive area.</summary>
+        private static bool IsUsable(RectangleF rect)
+        {
+            return !float.IsNaN(rect.Width) && !float.IsInfinity(rect.Width) &&
+                   !float.IsNaN(rect.Height) && !float.IsInfinity(rect.Height) &&
+                   !float.IsNaN(rect.X) && !float.IsInfinity(rect.X) &&
+                   !float.IsNaN(rect.Y) && !float.IsInfinity(rect.Y) &&
+                   rect.Width > 0f && rect.Height > 0f;
         }
 
         private static RectangleF InsetForTitle(RectangleF rect, TreemapOptions options)
@@ -100,8 +119,14 @@ namespace VoidSniffer.Treemap
             var row = new List<double>();
             int index = 0;
 
+            const double epsilon = 0.001;
+
             while (index < scaled.Count)
             {
+                // A degenerate remainder can no longer hold anything; stop rather than
+                // dividing by (near) zero and producing infinite rectangles.
+                if (remaining.Width <= epsilon || remaining.Height <= epsilon) break;
+
                 double side = Math.Min(remaining.Width, remaining.Height);
                 double currentWorst = Worst(row, side);
                 double nextWorst = WorstWith(row, scaled[index], side);
@@ -118,7 +143,7 @@ namespace VoidSniffer.Treemap
                 }
             }
 
-            if (row.Count > 0)
+            if (row.Count > 0 && remaining.Width > epsilon && remaining.Height > epsilon)
             {
                 LayoutRow(row, remaining, output);
             }
@@ -159,8 +184,8 @@ namespace VoidSniffer.Treemap
             if (remaining.Width >= remaining.Height)
             {
                 // Vertical strip on the left-hand side.
-                double thickness = remaining.Height > 0 ? sum / remaining.Height : 0;
-                if (thickness > remaining.Width) thickness = remaining.Width;
+                double thickness = remaining.Height > 0 ? sum / remaining.Height : remaining.Width;
+                if (!(thickness > 0) || thickness > remaining.Width) thickness = remaining.Width;
 
                 float y = remaining.Y;
                 for (int i = 0; i < row.Count; i++)
@@ -178,8 +203,8 @@ namespace VoidSniffer.Treemap
             else
             {
                 // Horizontal strip along the top.
-                double thickness = remaining.Width > 0 ? sum / remaining.Width : 0;
-                if (thickness > remaining.Height) thickness = remaining.Height;
+                double thickness = remaining.Width > 0 ? sum / remaining.Width : remaining.Height;
+                if (!(thickness > 0) || thickness > remaining.Height) thickness = remaining.Height;
 
                 float x = remaining.X;
                 for (int i = 0; i < row.Count; i++)

@@ -35,9 +35,11 @@ namespace VoidSniffer.Treemap
         private readonly TreemapOptions _options = new TreemapOptions();
         private readonly TreemapLayoutCache _cache;
         private readonly Dictionary<int, SolidBrush> _brushCache = new Dictionary<int, SolidBrush>();
-        private readonly Dictionary<int, Pen> _borderCache = new Dictionary<int, Pen>();
+        private readonly ToolTip _toolTip = new ToolTip();
+        private Pen _borderPen;
 
         private Font _labelFont;
+        private Font _detailFont;
         private FileNode _content;
         private FileNode _hoverNode;
         private FileNode _selected;
@@ -63,8 +65,9 @@ namespace VoidSniffer.Treemap
                 ControlStyles.ResizeRedraw,
                 true);
 
-            BackColor = Color.FromArgb(28, 28, 30);
+            BackColor = TreemapColorizer.Background;
             _labelFont = new Font("Segoe UI", 7.5f, FontStyle.Regular, GraphicsUnit.Point);
+            _detailFont = new Font("Segoe UI", 6.5f, FontStyle.Regular, GraphicsUnit.Point);
             _cache = new TreemapLayoutCache(_options);
         }
 
@@ -148,6 +151,14 @@ namespace VoidSniffer.Treemap
             }
         }
 
+        /// <summary>Resolves the fill color of a block (folder palette or file/extension tint).</summary>
+        private static Color GetFill(TreemapBlock block)
+        {
+            return block.Node.IsFolder
+                ? TreemapColorizer.GetFill(block.ColorIndex, block.Depth)
+                : TreemapColorizer.GetFileFill(block.Node);
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
             EnsureLayout();
@@ -159,8 +170,8 @@ namespace VoidSniffer.Treemap
             g.PixelOffsetMode = PixelOffsetMode.Half;
 
             IList<TreemapBlock> blocks = _cache.Blocks;
-            int labelBudget = MaxLabels;
 
+            // Pass 1: fills and 1px borders for every visible block.
             for (int i = 0; i < blocks.Count; i++)
             {
                 TreemapBlock block = blocks[i];
@@ -168,14 +179,16 @@ namespace VoidSniffer.Treemap
                 if (rect.Width < 1 || rect.Height < 1) continue;
                 if (!rect.IntersectsWith(clip)) continue;
 
-                Color fill = TreemapColorizer.GetFill(block.Node, block.Depth);
-                g.FillRectangle(GetBrush(fill), rect);
-                g.DrawRectangle(GetBorderPen(block.Depth), rect.X, rect.Y, rect.Width - 1, rect.Height - 1);
+                g.FillRectangle(GetBrush(GetFill(block)), rect);
+                g.DrawRectangle(GetBorderPen(), rect.X, rect.Y, rect.Width - 1, rect.Height - 1);
             }
 
-            DrawHighlight(g, clip, _cache.Find(_hoverNode), Color.FromArgb(120, 255, 255, 255), 1);
-            DrawHighlight(g, clip, _cache.Find(_selected), Color.FromArgb(255, 255, 210), 2);
+            DrawHighlight(g, clip, _cache.Find(_hoverNode), Color.FromArgb(120, 90, 60, 20), 1);
+            DrawHighlight(g, clip, _cache.Find(_selected), Color.FromArgb(255, 255, 255), 2);
 
+            // Pass 2: labels on top, so an inner container's label is never painted over
+            // by an adjacent outer tile.
+            int labelBudget = MaxLabels;
             for (int i = 0; i < blocks.Count && labelBudget > 0; i++)
             {
                 labelBudget -= DrawLabel(g, clip, blocks[i]);
@@ -202,43 +215,58 @@ namespace VoidSniffer.Treemap
             if (rect.Width < 30 || rect.Height < 12) return 0;
             if (!rect.IntersectsWith(clip)) return 0;
 
-            int left = rect.X + 2;
-            int width = rect.Width - 4;
-            if (width < 8) return 0;
+            Color text = TreemapColorizer.GetTextColor(GetFill(block));
+            Color subText = Color.FromArgb(200, text.R, text.G, text.B);
 
-            Color fill = TreemapColorizer.GetFill(block.Node, block.Depth);
-            Color text = TreemapColorizer.GetTextColor(fill);
-            Color subText = Color.FromArgb(210, text.R, text.G, text.B);
+            int nameH = _labelFont.Height + 1;
+            int detailH = _detailFont.Height + 1;
+            int inset = 3;
 
-            int lineH = _labelFont.Height + 1;
-            int available = block.Node.IsFolder
-                ? Math.Min(rect.Height, (int)_options.TitleHeight)
-                : rect.Height;
-            if (available < lineH) return 0;
-
-            DrawLabelLine(g, NodeLabelFormatter.DescribeName(block.Node),
-                new Rectangle(left, rect.Y + 1, width, lineH), text);
-
-            if (available >= lineH * 2)
+            if (block.Node.IsFolder)
             {
-                DrawLabelLine(g, NodeLabelFormatter.DescribeDetails(block.Node),
-                    new Rectangle(left, rect.Y + 1 + lineH, width, lineH), subText);
+                // Name top-left, then details centered in the remaining width.
+                var nameRect = new Rectangle(rect.X + inset, rect.Y + 1, rect.Width - (inset * 2), nameH);
+                DrawLabelLine(g, _labelFont, NodeLabelFormatter.DescribeName(block.Node), nameRect, text,
+                    TextFormatFlags.Left);
+
+                if (rect.Width >= 60 && rect.Height >= nameH + detailH + 3)
+                {
+                    var detailRect = new Rectangle(rect.X + inset, rect.Y + 1 + nameH,
+                        rect.Width - (inset * 2), detailH);
+                    DrawLabelLine(g, _detailFont, NodeLabelFormatter.DescribeDetails(block.Node), detailRect, subText,
+                        TextFormatFlags.HorizontalCenter);
+                }
+            }
+            else
+            {
+                // Files: name centered, details centered below.
+                var nameRect = new Rectangle(rect.X + inset, rect.Y + 1, rect.Width - (inset * 2), nameH);
+                DrawLabelLine(g, _labelFont, NodeLabelFormatter.DescribeName(block.Node), nameRect, text,
+                    TextFormatFlags.HorizontalCenter);
+
+                if (rect.Width >= 60 && rect.Height >= nameH + detailH + 3)
+                {
+                    var detailRect = new Rectangle(rect.X + inset, rect.Y + 1 + nameH,
+                        rect.Width - (inset * 2), detailH);
+                    DrawLabelLine(g, _detailFont, NodeLabelFormatter.DescribeDetails(block.Node), detailRect, subText,
+                        TextFormatFlags.HorizontalCenter);
+                }
             }
 
             return 1;
         }
 
-        private void DrawLabelLine(Graphics g, string text, Rectangle rect, Color color)
+        private static void DrawLabelLine(Graphics g, Font font, string text, Rectangle rect, Color color, TextFormatFlags alignment)
         {
             if (string.IsNullOrEmpty(text) || rect.Width <= 0) return;
 
             TextRenderer.DrawText(
                 g,
                 text,
-                _labelFont,
+                font,
                 rect,
                 color,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine |
+                alignment | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine |
                 TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
         }
 
@@ -279,13 +307,13 @@ namespace VoidSniffer.Treemap
             return brush;
         }
 
-        private Pen GetBorderPen(int depth)
+        private Pen GetBorderPen()
         {
-            Pen pen;
-            if (!_borderCache.TryGetValue(depth, out pen))
+            Pen pen = _borderPen;
+            if (pen == null)
             {
-                pen = new Pen(TreemapColorizer.GetBorderColor(depth), 1f);
-                _borderCache[depth] = pen;
+                pen = new Pen(TreemapColorizer.Border, 1f);
+                _borderPen = pen;
             }
             return pen;
         }
@@ -343,7 +371,19 @@ namespace VoidSniffer.Treemap
             InvalidateBlock(previous);
             InvalidateBlock(node);
 
+            UpdateToolTip(node);
             Raise(HoverChanged, new TreemapNodeEventArgs(node));
+        }
+
+        private void UpdateToolTip(FileNode node)
+        {
+            if (node == null)
+            {
+                _toolTip.SetToolTip(this, null);
+                return;
+            }
+
+            _toolTip.SetToolTip(this, node.FullPath + Environment.NewLine + NodeLabelFormatter.DescribeDetails(node));
         }
 
         protected override void OnMouseLeave(EventArgs e)
@@ -382,9 +422,18 @@ namespace VoidSniffer.Treemap
                     _labelFont.Dispose();
                     _labelFont = null;
                 }
+                if (_detailFont != null)
+                {
+                    _detailFont.Dispose();
+                    _detailFont = null;
+                }
+                if (_borderPen != null)
+                {
+                    _borderPen.Dispose();
+                    _borderPen = null;
+                }
+                _toolTip.Dispose();
                 ClearBrushCache();
-                foreach (Pen pen in _borderCache.Values) pen.Dispose();
-                _borderCache.Clear();
             }
             base.Dispose(disposing);
         }

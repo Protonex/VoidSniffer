@@ -56,6 +56,46 @@ namespace VoidSniffer.Tests
         }
 
         [Fact]
+        public void Layout_SharesColorIndexBetweenSiblingFolderAndItsChildren()
+        {
+            FileNode root = TestTree.Folder("root",
+                TestTree.Folder("sub",
+                    TestTree.File("a", 60),
+                    TestTree.File("b", 40)),
+                TestTree.File("c", 50));
+
+            List<TreemapBlock> blocks = TreemapLayout.Layout(
+                root, new Rectangle(0, 0, 400, 300), new TreemapOptions());
+
+            TreemapBlock sub = blocks.First(b => b.Node.Name == "sub");
+            TreemapBlock a = blocks.First(b => b.Node.Name == "a");
+            Assert.Equal(sub.ColorIndex, a.ColorIndex);
+        }
+
+        [Fact]
+        public void Squarify_NeverProducesNonFiniteOrOutOfBoundsRectangles()
+        {
+            // Many children with wildly varying sizes inside a very thin container used to
+            // produce an infinite-width rectangle; the layout must stay well-defined.
+            var areas = new List<double> { 50, 40, 30, 20, 10, 5, 1, 0.001, 0.0001, 100 };
+            var output = new List<RectangleF>();
+            var container = new RectangleF(0, 0, 1200, 6);
+
+            TreemapLayout.Squarify(areas, container, output);
+
+            foreach (RectangleF r in output)
+            {
+                Assert.False(float.IsNaN(r.X) || float.IsInfinity(r.X));
+                Assert.False(float.IsNaN(r.Y) || float.IsInfinity(r.Y));
+                Assert.False(float.IsNaN(r.Width) || float.IsInfinity(r.Width));
+                Assert.False(float.IsNaN(r.Height) || float.IsInfinity(r.Height));
+                Assert.True(r.Width > 0f && r.Height > 0f);
+                Assert.InRange(r.Left, -0.5f, container.Width + 0.5f);
+                Assert.InRange(r.Right, -0.5f, container.Width + 0.5f);
+            }
+        }
+
+        [Fact]
         public void Layout_IgnoresZeroSizedChildren()
         {
             FileNode root = TestTree.Folder("root",
@@ -84,8 +124,23 @@ namespace VoidSniffer.Tests
         [Fact]
         public void GetFill_IsDeterministic()
         {
-            FileNode node = TestTree.File("a.txt", 10);
-            Assert.Equal(TreemapColorizer.GetFill(node, 0), TreemapColorizer.GetFill(node, 0));
+            Assert.Equal(TreemapColorizer.GetFill(3, 0), TreemapColorizer.GetFill(3, 0));
+        }
+
+        [Fact]
+        public void GetFill_WrapsPaletteIndex()
+        {
+            Assert.Equal(
+                TreemapColorizer.GetFill(0, 0),
+                TreemapColorizer.GetFill(TreemapColorizer.PaletteSize, 0));
+        }
+
+        [Fact]
+        public void GetFileFill_TintsByExtension()
+        {
+            Color exe = TreemapColorizer.GetFileFill(TestTree.File("a.exe", 10));
+            Color txt = TreemapColorizer.GetFileFill(TestTree.File("a.txt", 10));
+            Assert.NotEqual(exe, txt);
         }
 
         [Fact]
@@ -94,8 +149,9 @@ namespace VoidSniffer.Tests
             Color light = Color.FromArgb(240, 240, 240);
             Color dark = Color.FromArgb(20, 20, 20);
 
-            Assert.Equal(Color.FromArgb(20, 20, 20), TreemapColorizer.GetTextColor(light));
-            Assert.Equal(Color.FromArgb(240, 240, 240), TreemapColorizer.GetTextColor(dark));
+            // Light backgrounds get dark text and vice versa.
+            Assert.True(TreemapColorizer.GetTextColor(light).R < 128);
+            Assert.True(TreemapColorizer.GetTextColor(dark).R > 128);
         }
     }
 

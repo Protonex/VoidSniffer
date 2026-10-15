@@ -17,8 +17,8 @@ namespace VoidSniffer.Treemap
         }
 
         /// <summary>
-        /// Line 2: logical size, plus recursive file/folder counts for folders and the
-        /// on-disk size when it has been resolved.
+        /// Line 2: for folders, the logical size, the estimated on-disk size, and the
+        /// recursive folder/file counts; for files, just the size.
         /// </summary>
         public static string DescribeDetails(FileNode node)
         {
@@ -27,19 +27,21 @@ namespace VoidSniffer.Treemap
             var sb = new StringBuilder();
             sb.Append(FormatSize(node.TotalSize));
 
-            if (node.IsFolder && node.HasCounts)
-            {
-                sb.Append("  ·  ");
-                sb.Append(FormatCount(node.FolderCount, "папка", "папки", "папок"));
-                sb.Append(", ");
-                sb.Append(FormatCount(node.FileCount, "файл", "файла", "файлов"));
-            }
+            if (!node.IsFolder) return sb.ToString();
 
             if (node.HasOnDisk)
             {
                 sb.Append("  ·  ≈");
                 sb.Append(FormatSize(node.OnDiskSize));
                 sb.Append(" на диске");
+            }
+
+            if (node.HasCounts)
+            {
+                sb.Append("  ·  ");
+                sb.Append(FormatCount(node.FolderCount, "папка", "папки", "папок"));
+                sb.Append(", ");
+                sb.Append(FormatCount(node.FileCount, "файл", "файла", "файлов"));
             }
 
             return sb.ToString();

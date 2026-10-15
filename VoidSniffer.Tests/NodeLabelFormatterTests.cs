@@ -10,8 +10,9 @@ namespace VoidSniffer.Tests
         public void DescribeDetails_File_ShowsSizeOnly()
         {
             FileNode file = TestTree.File("a.bin", 2048);
+            file.OnDiskSize = 4096;
             string text = NodeLabelFormatter.DescribeDetails(file);
-            Assert.Contains("2 КБ", text);
+            Assert.Equal("2 КБ", text.Replace('.', ','));
         }
 
         [Fact]
@@ -30,12 +31,15 @@ namespace VoidSniffer.Tests
         }
 
         [Fact]
-        public void DescribeDetails_ShowsOnDiskWhenResolved()
+        public void DescribeDetails_FolderShowsOnDiskWhenResolved()
         {
-            FileNode file = TestTree.File("a.bin", 100);
-            file.OnDiskSize = 4096;
+            FileNode folder = TestTree.Folder("docs");
+            folder.TotalSize = 100;
+            folder.OnDiskSize = 4096;
+            folder.FileCount = 1;
+            folder.FolderCount = 0;
 
-            string text = NodeLabelFormatter.DescribeDetails(file);
+            string text = NodeLabelFormatter.DescribeDetails(folder);
             Assert.Contains("≈4 КБ на диске", text);
         }
 

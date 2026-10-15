@@ -11,6 +11,7 @@ namespace VoidSniffer.Model
             Children = new List<FileNode>();
             FileCount = -1;
             FolderCount = -1;
+            OnDiskSize = -1;
         }
 
         public string Name { get; set; }
