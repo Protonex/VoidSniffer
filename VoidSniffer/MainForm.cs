@@ -20,6 +20,8 @@ namespace VoidSniffer
 
         private CancellationTokenSource _cts;
         private FileNode _fullRoot;
+        private ProgressiveTreeLoader _loader;
+        private bool _expanding;
 
         public MainForm()
         {
@@ -155,41 +157,26 @@ namespace VoidSniffer
 
             SetBusy(true, "Запрос к индексу Everything…");
 
-            // The tree is built level by level; each level raises ProgressChanged so the
-            // treemap fills in as data arrives instead of waiting for the whole subtree.
+            // One cheap query loads the root's direct children; the index already knows
+            // the exact recursive size of every folder, so the treemap is complete and
+            // correctly sized immediately. Deeper levels load on demand when drilled into.
             var loader = new ProgressiveTreeLoader(_provider);
-            bool rootPublished = false;
-
-            loader.ProgressChanged += (s, e) =>
-            {
-                if (!ReferenceEquals(_cts, cts)) return;
-
-                if (!rootPublished)
-                {
-                    rootPublished = true;
-                    _fullRoot = loader.Root;
-                    _navigation.SetRoot(_fullRoot);
-                }
-
-                int nodes = RefreshView();
-                SetStatus(string.Format("{0} — построение… уровень {1}, узлов {2:N0}, объём {3}, папок в очереди {4:N0}",
-                    normalized, e.Level, nodes, FormatSize(e.TotalSize), e.PendingFolders));
-            };
+            _loader = loader;
+            _expanding = false;
 
             try
             {
-                await loader.LoadAsync(normalized, cts.Token);
+                await loader.LoadRootAsync(normalized, cts.Token);
 
                 _fullRoot = loader.Root;
+                _navigation.SetRoot(_fullRoot);
                 RefreshView();
 
                 string suffix = loader.TruncatedFolderCount > 0
-                    ? string.Format(" (лимит {0:N0} на папку, усечено папок: {1:N0})",
-                        _provider.MaxResults, loader.TruncatedFolderCount)
+                    ? string.Format(" (усечено папок: {0:N0})", loader.TruncatedFolderCount)
                     : string.Empty;
-
-                SetStatus(string.Format("{0} — готово: узлов {1:N0}, объём {2}{3}",
-                    normalized, FilterService.CountNodes(_navigation.Root), FormatSize(_fullRoot.TotalSize), suffix));
+                SetStatus(string.Format("{0} — узлов: {1:N0}, объём: {2}{3}",
+                    normalized, loader.NodeCount, FormatSize(loader.Root.TotalSize), suffix));
             }
             catch (OperationCanceledException)
             {
@@ -230,28 +217,15 @@ namespace VoidSniffer
         }
 
         /// <summary>
-        /// Recomputes the filtered view over the current (possibly still growing) tree,
-        /// restores the previously focused folder when possible and repaints. Returns the
-        /// number of nodes in the resulting view. Safe to call repeatably during a
-        /// progressive load.
+        /// Recomputes the filtered view over the current tree, restores the previously
+        /// focused folder when possible and repaints. Navigation history is preserved.
+        /// Safe to call repeatably (e.g. after a lazy folder expansion).
         /// </summary>
         private int RefreshView()
         {
             FilterCriteria criteria = BuildCriteria();
-            string previousPath = _navigation.Focus != null ? _navigation.Focus.FullPath : null;
-
             FileNode view = _filterService.Apply(_fullRoot, criteria);
-            _navigation.SetRoot(view);
-
-            if (previousPath != null)
-            {
-                FileNode restored = FindByPath(view, previousPath);
-                if (restored != null && restored.IsFolder && !ReferenceEquals(restored, view))
-                {
-                    _navigation.NavigateTo(restored);
-                }
-            }
-
+            _navigation.RebuildRoot(view);
             return FilterService.CountNodes(_navigation.Root);
         }
 
@@ -324,6 +298,55 @@ namespace VoidSniffer
         {
             treemap.SetContent(_navigation.Focus);
             UpdateNavigation();
+            EnsureFocusExpanded(_navigation.Focus);
+        }
+
+        /// <summary>
+        /// Lazily loads the children of the focused folder when they have not been loaded
+        /// yet, then refreshes the view. This is what makes drilling into a folder cost a
+        /// single index query instead of pre-loading the whole subtree.
+        /// </summary>
+        private void EnsureFocusExpanded(FileNode focus)
+        {
+            if (_loader == null || focus == null || !focus.IsFolder) return;
+
+            FileNode canonical = FindByPath(_fullRoot, focus.FullPath);
+            if (canonical == null || _loader.IsExpanded(canonical)) return;
+
+            _ = ExpandFolderAsync(canonical);
+        }
+
+        private async Task ExpandFolderAsync(FileNode folder)
+        {
+            if (_expanding || _loader == null) return;
+
+            _expanding = true;
+            SetStatus("Запрос к индексу Everything…");
+            try
+            {
+                CancellationToken token = _cts != null ? _cts.Token : CancellationToken.None;
+                if (await _loader.ExpandAsync(folder, token))
+                {
+                    RefreshView();
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (EverythingNotAvailableException ex)
+            {
+                SetStatus("Everything недоступен.");
+                MessageBox.Show(this, ex.Message, "Everything недоступен",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                SetStatus("Ошибка: " + ex.Message);
+            }
+            finally
+            {
+                _expanding = false;
+            }
         }
 
         private void Treemap_BlockActivated(object sender, TreemapNodeEventArgs e)

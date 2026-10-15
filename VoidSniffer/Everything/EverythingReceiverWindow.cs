@@ -136,9 +136,17 @@ namespace VoidSniffer.Everything
         private static readonly List<KeyValuePair<uint, EverythingReceiverWindow>> Requests =
             new List<KeyValuePair<uint, EverythingReceiverWindow>>();
 
+        private static readonly object RequestsLock = new object();
+
         private static int _nextReplyId = new Random().Next(1, int.MaxValue);
 
-        private readonly WndProc _wndProcDelegate;
+        // The window class is registered once per process and keeps pointing at this
+        // delegate for the whole process lifetime. It must never be collected while the
+        // class is alive, otherwise the callback pointer dangles and calls into freed
+        // memory (AccessViolationException). Holding it in a static field roots it.
+        private static readonly WndProc StaticWndProc = ReceiverWndProc;
+        private static readonly IntPtr StaticWndProcPtr = Marshal.GetFunctionPointerForDelegate(StaticWndProc);
+
         private IntPtr _hwnd = IntPtr.Zero;
         private byte[] _rawQuery = new byte[0];
         private uint _replyId;
@@ -148,8 +156,6 @@ namespace VoidSniffer.Everything
 
         public EverythingReceiverWindow()
         {
-            _wndProcDelegate = ReceiverWndProc;
-
             IntPtr hInstance = GetHInstance();
             EnsureWindowClassRegistered(hInstance);
 
@@ -165,7 +171,10 @@ namespace VoidSniffer.Everything
             ChangeWindowMessageFilterEx(_hwnd, WmCopyData, MessageFilterAction.Allow, IntPtr.Zero);
 
             _replyId = (uint)System.Threading.Interlocked.Increment(ref _nextReplyId);
-            Requests.Add(new KeyValuePair<uint, EverythingReceiverWindow>(_replyId, this));
+            lock (RequestsLock)
+            {
+                Requests.Add(new KeyValuePair<uint, EverythingReceiverWindow>(_replyId, this));
+            }
         }
 
         private static IntPtr GetHInstance()
@@ -304,7 +313,7 @@ namespace VoidSniffer.Everything
             PostMessage(_hwnd, WmClose, IntPtr.Zero, IntPtr.Zero);
         }
 
-        private IntPtr ReceiverWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
+        private static IntPtr ReceiverWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
         {
             switch (msg)
             {
@@ -314,12 +323,15 @@ namespace VoidSniffer.Everything
                 case WmCopyData:
                     var data = (CopyDataStruct)Marshal.PtrToStructure(lParam, typeof(CopyDataStruct));
                     EverythingReceiverWindow target = null;
-                    for (int i = 0; i < Requests.Count; i++)
+                    lock (RequestsLock)
                     {
-                        if (Requests[i].Key == (uint)data.dwData)
+                        for (int i = 0; i < Requests.Count; i++)
                         {
-                            target = Requests[i].Value;
-                            break;
+                            if (Requests[i].Key == (uint)data.dwData)
+                            {
+                                target = Requests[i].Value;
+                                break;
+                            }
                         }
                     }
                     if (target != null)
@@ -332,7 +344,7 @@ namespace VoidSniffer.Everything
             return DefWindowProc(hWnd, msg, wParam, lParam);
         }
 
-        private void EnsureWindowClassRegistered(IntPtr hInstance)
+        private static void EnsureWindowClassRegistered(IntPtr hInstance)
         {
             var wc = new WndClass();
             if (GetClassInfo(hInstance, WindowClassName, ref wc))
@@ -344,7 +356,7 @@ namespace VoidSniffer.Everything
             wcex.cbSize = (uint)Marshal.SizeOf(typeof(WndClassEx));
             wcex.hInstance = hInstance;
             wcex.lpszClassName = WindowClassName;
-            wcex.lpfnWndProc = Marshal.GetFunctionPointerForDelegate(_wndProcDelegate);
+            wcex.lpfnWndProc = StaticWndProcPtr;
 
             ushort atom = RegisterClassEx(ref wcex);
             if (atom == 0)
@@ -490,12 +502,15 @@ namespace VoidSniffer.Everything
 
         public void Dispose()
         {
-            for (int i = 0; i < Requests.Count; i++)
+            lock (RequestsLock)
             {
-                if (Requests[i].Value == this)
+                for (int i = 0; i < Requests.Count; i++)
                 {
-                    Requests.RemoveAt(i);
-                    break;
+                    if (Requests[i].Value == this)
+                    {
+                        Requests.RemoveAt(i);
+                        break;
+                    }
                 }
             }
 

@@ -10,9 +10,8 @@ namespace VoidSniffer.Services
     /// </summary>
     public sealed class NavigationController
     {
-        private readonly Stack<FileNode> _back = new Stack<FileNode>();
-        private readonly Stack<FileNode> _forward = new Stack<FileNode>();
-
+        private Stack<FileNode> _back = new Stack<FileNode>();
+        private Stack<FileNode> _forward = new Stack<FileNode>();
         private FileNode _root;
         private FileNode _focus;
 
@@ -67,6 +66,53 @@ namespace VoidSniffer.Services
             _back.Clear();
             _forward.Clear();
             RaiseFocusChanged();
+        }
+
+        /// <summary>
+        /// Replaces the tree in place while preserving the focused folder and the
+        /// back/forward history, matched by full path. Used when the displayed tree is
+        /// rebuilt (e.g. after a filter or a lazy folder expansion) so navigation state
+        /// survives the rebuild.
+        /// </summary>
+        public void RebuildRoot(FileNode newRoot)
+        {
+            string focusPath = _focus != null ? _focus.FullPath : null;
+
+            _root = newRoot;
+            _focus = FindByPath(newRoot, focusPath);
+            if (_focus == null) _focus = newRoot;
+
+            _back = Remap(_back, newRoot);
+            _forward = Remap(_forward, newRoot);
+            RaiseFocusChanged();
+        }
+
+        private static Stack<FileNode> Remap(Stack<FileNode> source, FileNode root)
+        {
+            var result = new Stack<FileNode>();
+            if (source == null || source.Count == 0) return result;
+
+            var ordered = new List<FileNode>(source);
+            ordered.Reverse();
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                FileNode mapped = FindByPath(root, ordered[i].FullPath);
+                if (mapped != null) result.Push(mapped);
+            }
+            return result;
+        }
+
+        private static FileNode FindByPath(FileNode root, string fullPath)
+        {
+            if (root == null || string.IsNullOrEmpty(fullPath)) return null;
+            if (string.Equals(root.FullPath, fullPath, StringComparison.OrdinalIgnoreCase)) return root;
+
+            for (int i = 0; i < root.Children.Count; i++)
+            {
+                FileNode found = FindByPath(root.Children[i], fullPath);
+                if (found != null) return found;
+            }
+            return null;
         }
 
         /// <summary>Focuses a folder. Non-folder nodes and the current focus are ignored.</summary>

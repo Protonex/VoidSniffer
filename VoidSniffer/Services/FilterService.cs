@@ -66,6 +66,16 @@ namespace VoidSniffer.Services
                     return Clone(node, depth);
                 }
 
+                // A folder whose children have not been loaded yet (lazy tree) is treated
+                // as an opaque leaf: its contents cannot be inspected, so it is kept as-is
+                // instead of being dropped for having no surviving descendants.
+                if (node.Children.Count == 0)
+                {
+                    return criteria.IncludeFolders && NameMatches(node.Name, criteria)
+                        ? Clone(node, depth)
+                        : null;
+                }
+
                 var keptChildren = new List<FileNode>();
                 long total = 0;
                 for (int i = 0; i < node.Children.Count; i++)
