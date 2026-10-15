@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Text;
 using VoidSniffer.Model;
@@ -45,6 +46,58 @@ namespace VoidSniffer.Treemap
             }
 
             return sb.ToString();
+        }
+
+        /// <summary>Title line of the hover tooltip (the node name).</summary>
+        public static string TooltipTitle(FileNode node)
+        {
+            return node == null ? string.Empty : (node.Name ?? string.Empty);
+        }
+
+        /// <summary>
+        /// Body lines of the hover tooltip: size (with the on-disk size in brackets),
+        /// recursive counts for folders, the creation/modified/access times when known,
+        /// and the full path.
+        /// </summary>
+        public static System.Collections.Generic.IList<string> TooltipLines(FileNode node)
+        {
+            var lines = new System.Collections.Generic.List<string>();
+            if (node == null) return lines;
+
+            var size = new StringBuilder();
+            size.Append(FormatSize(node.TotalSize));
+            if (node.HasOnDisk)
+            {
+                size.Append("   [");
+                size.Append(FormatSize(node.OnDiskSize));
+                size.Append(" на диске]");
+            }
+            lines.Add(size.ToString());
+
+            if (node.IsFolder && node.HasCounts)
+            {
+                lines.Add(FormatCount(node.FolderCount, "папка", "папки", "папок") + ", " +
+                          FormatCount(node.FileCount, "файл", "файла", "файлов"));
+            }
+
+            AppendDate(lines, "Создан", node.CreatedTime);
+            AppendDate(lines, "Изменён", node.ModifiedTime);
+            AppendDate(lines, "Открыт", node.LastAccessTime);
+
+            if (!string.IsNullOrEmpty(node.FullPath))
+            {
+                lines.Add(node.FullPath);
+            }
+
+            return lines;
+        }
+
+        private static void AppendDate(System.Collections.Generic.IList<string> lines, string label, DateTime? value)
+        {
+            if (value.HasValue)
+            {
+                lines.Add(label + ": " + value.Value.ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture));
+            }
         }
 
         /// <summary>Formats a byte count using binary units.</summary>

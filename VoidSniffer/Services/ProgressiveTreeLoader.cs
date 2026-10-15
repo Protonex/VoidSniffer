@@ -155,7 +155,9 @@ namespace VoidSniffer.Services
                     IsFolder = item.IsFolder,
                     OwnSize = item.IsFolder ? 0 : size,
                     TotalSize = size,
+                    CreatedTime = item.CreatedTime,
                     ModifiedTime = item.ModifiedTime,
+                    LastAccessTime = item.AccessedTime,
                     Parent = folder,
                     Depth = folder.Depth + 1
                 };

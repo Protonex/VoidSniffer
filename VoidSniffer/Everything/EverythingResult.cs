@@ -43,6 +43,8 @@ namespace VoidSniffer.Everything
 
         public DateTime? LastWriteTime { get; internal set; }
 
+        public DateTime? LastAccessTime { get; internal set; }
+
         public EverythingItemAttributes? Attributes { get; internal set; }
 
         public bool IsFolder

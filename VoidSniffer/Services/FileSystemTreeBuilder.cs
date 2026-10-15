@@ -58,7 +58,9 @@ namespace VoidSniffer.Services
                     FullPath = fullPath,
                     IsFolder = item.IsFolder,
                     OwnSize = item.IsFolder ? 0 : size,
+                    CreatedTime = item.CreatedTime,
                     ModifiedTime = item.ModifiedTime,
+                    LastAccessTime = item.AccessedTime,
                     Parent = parent
                 };
                 parent.Children.Add(node);

@@ -108,6 +108,17 @@ namespace VoidSniffer.SystemTests
                 }
                 return folder.Name + " = " + folder.Size.ToString("N0") + " Б";
             });
+
+            _report.Check("Everything отдаёт даты создания/изменения/доступа", () =>
+            {
+                FileSystemItem item = children.FirstOrDefault(c => c.ModifiedTime.HasValue);
+                if (item == null) throw new InvalidOperationException("ни у одного элемента нет даты изменения");
+                if (!item.CreatedTime.HasValue) throw new InvalidOperationException("нет даты создания");
+
+                // Accessed is best-effort (may be disabled), so only report it.
+                return item.Name + " — изменён " + item.ModifiedTime.Value.ToString("yyyy-MM-dd HH:mm") +
+                       ", открыт " + (item.AccessedTime.HasValue ? item.AccessedTime.Value.ToString("yyyy-MM-dd HH:mm") : "н/д");
+            });
         }
 
         private void RunProgressiveTests(string root)

@@ -23,6 +23,12 @@ namespace VoidSniffer.Model
         /// <summary>Last write time reported by the index, when available.</summary>
         public DateTime? ModifiedTime { get; set; }
 
+        /// <summary>Creation time reported by the index, when available.</summary>
+        public DateTime? CreatedTime { get; set; }
+
+        /// <summary>Last access time reported by the index, when available.</summary>
+        public DateTime? LastAccessTime { get; set; }
+
         /// <summary>Size of this node alone (files only; folders report 0).</summary>
         public long OwnSize { get; set; }
 

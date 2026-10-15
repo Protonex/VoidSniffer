@@ -41,8 +41,10 @@ namespace VoidSniffer.Treemap
 
         private Font _labelFont;
         private Font _detailFont;
+        private Font _tipTitleFont;
         private FileNode _content;
         private FileNode _hoverNode;
+        private FileNode _toolTipNode;
         private FileNode _selected;
         private DateTime _hoverStartedUtc;
 
@@ -75,6 +77,11 @@ namespace VoidSniffer.Treemap
 
             _hoverTimer.Interval = 15;
             _hoverTimer.Tick += (s, e) => OnHoverTick();
+
+            _tipTitleFont = new Font("Segoe UI", 8f, FontStyle.Bold, GraphicsUnit.Point);
+            _toolTip.OwnerDraw = true;
+            _toolTip.Popup += OnToolTipPopup;
+            _toolTip.Draw += OnToolTipDraw;
         }
 
         /// <summary>Node whose children are currently rendered.</summary>
@@ -190,17 +197,18 @@ namespace VoidSniffer.Treemap
                 g.DrawRectangle(GetBorderPen(), rect.X, rect.Y, rect.Width - 1, rect.Height - 1);
             }
 
-            // Pass 2: labels on top, so an inner container's label is never painted over
-            // by an adjacent outer tile.
+            // Pass 2: the animated hover lightening, painted over the whole tile (and its
+            // children) before any text so the labels stay crisp and readable.
+            DrawHover(g, clip);
+
+            // Pass 3: labels on top, so an inner container's label is never painted over
+            // by an adjacent outer tile and never washed out by the hover overlay.
             int labelBudget = MaxLabels;
             for (int i = 0; i < blocks.Count && labelBudget > 0; i++)
             {
                 labelBudget -= DrawLabel(g, clip, blocks[i]);
             }
 
-            // Pass 3: the animated hover lightening, painted over the whole tile (and its
-            // children), then the selection outline on top of it.
-            DrawHover(g, clip);
             DrawHighlight(g, clip, _cache.Find(_selected), Color.FromArgb(255, 255, 255), 2);
         }
 
@@ -439,13 +447,68 @@ namespace VoidSniffer.Treemap
 
         private void UpdateToolTip(FileNode node)
         {
-            if (node == null)
+            _toolTipNode = node;
+            // A non-empty text is required for the popup to appear; the Draw handler
+            // renders the actual content.
+            _toolTip.SetToolTip(this, node == null ? null : " ");
+        }
+
+        private void OnToolTipPopup(object sender, PopupEventArgs e)
+        {
+            if (_toolTipNode == null)
             {
-                _toolTip.SetToolTip(this, null);
+                e.Cancel = true;
                 return;
             }
 
-            _toolTip.SetToolTip(this, node.FullPath + Environment.NewLine + NodeLabelFormatter.DescribeDetails(node));
+            e.ToolTipSize = MeasureTooltip(_toolTipNode);
+        }
+
+        private Size MeasureTooltip(FileNode node)
+        {
+            int width = TextRenderer.MeasureText(NodeLabelFormatter.TooltipTitle(node), _tipTitleFont).Width;
+            int height = _tipTitleFont.Height + 3;
+
+            System.Collections.Generic.IList<string> lines = NodeLabelFormatter.TooltipLines(node);
+            for (int i = 0; i < lines.Count; i++)
+            {
+                int lineWidth = TextRenderer.MeasureText(lines[i], _labelFont).Width;
+                if (lineWidth > width) width = lineWidth;
+                height += _labelFont.Height;
+            }
+
+            return new Size(width + 14, height + 10);
+        }
+
+        private void OnToolTipDraw(object sender, DrawToolTipEventArgs e)
+        {
+            FileNode node = _toolTipNode;
+            if (node == null) return;
+
+            Graphics g = e.Graphics;
+            Rectangle bounds = e.Bounds;
+
+            using (var background = new SolidBrush(Color.FromArgb(255, 255, 225)))
+            {
+                g.FillRectangle(background, bounds);
+            }
+            using (var border = new Pen(Color.FromArgb(150, 140, 110)))
+            {
+                g.DrawRectangle(border, 0, 0, bounds.Width - 1, bounds.Height - 1);
+            }
+
+            int x = 7;
+            int y = 5;
+            TextRenderer.DrawText(g, NodeLabelFormatter.TooltipTitle(node), _tipTitleFont,
+                new Point(x, y), Color.FromArgb(20, 20, 20));
+            y += _tipTitleFont.Height + 3;
+
+            System.Collections.Generic.IList<string> lines = NodeLabelFormatter.TooltipLines(node);
+            for (int i = 0; i < lines.Count; i++)
+            {
+                TextRenderer.DrawText(g, lines[i], _labelFont, new Point(x, y), Color.FromArgb(45, 40, 30));
+                y += _labelFont.Height;
+            }
         }
 
         protected override void OnMouseLeave(EventArgs e)
@@ -489,6 +552,11 @@ namespace VoidSniffer.Treemap
                 {
                     _detailFont.Dispose();
                     _detailFont = null;
+                }
+                if (_tipTitleFont != null)
+                {
+                    _tipTitleFont.Dispose();
+                    _tipTitleFont = null;
                 }
                 if (_borderPen != null)
                 {

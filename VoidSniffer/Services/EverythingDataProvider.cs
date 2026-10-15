@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -91,7 +91,9 @@ namespace VoidSniffer.Services
                         FullPath = PathUtil.Combine(source.Path, source.Name),
                         IsFolder = source.IsFolder,
                         Size = size,
-                        ModifiedTime = source.LastWriteTime
+                        CreatedTime = source.CreationTime,
+                        ModifiedTime = source.LastWriteTime,
+                        AccessedTime = source.LastAccessTime
                     });
                 }
 
@@ -155,7 +157,9 @@ namespace VoidSniffer.Services
                         FullPath = PathUtil.Combine(source.Path, source.Name),
                         IsFolder = source.IsFolder,
                         Size = size,
-                        ModifiedTime = source.LastWriteTime
+                        CreatedTime = source.CreationTime,
+                        ModifiedTime = source.LastWriteTime,
+                        AccessedTime = source.LastAccessTime
                     });
                 }
 
@@ -262,3 +266,4 @@ namespace VoidSniffer.Services
         }
     }
 }
+

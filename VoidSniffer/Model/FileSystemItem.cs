@@ -19,7 +19,13 @@
         /// <summary>Size in bytes. Zero for folders or when unknown.</summary>
         public long Size { get; set; }
 
+        /// <summary>Creation time reported by the index, when available.</summary>
+        public System.DateTime? CreatedTime { get; set; }
+
         /// <summary>Last write time reported by the index, when available.</summary>
         public System.DateTime? ModifiedTime { get; set; }
+
+        /// <summary>Last access time reported by the index, when available.</summary>
+        public System.DateTime? AccessedTime { get; set; }
     }
 }

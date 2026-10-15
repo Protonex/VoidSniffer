@@ -203,7 +203,9 @@ namespace VoidSniffer.Everything
             q.RequestFlags = EverythingIpc.RequestName
                 | EverythingIpc.RequestPath
                 | EverythingIpc.RequestSize
+                | EverythingIpc.RequestDateCreated
                 | EverythingIpc.RequestDateModified
+                | EverythingIpc.RequestDateAccessed
                 | EverythingIpc.RequestAttributes;
             q.SortType = sortType;
 
@@ -417,7 +419,9 @@ namespace VoidSniffer.Everything
                 string name = null;
                 string path = null;
                 ulong? size = null;
+                DateTime? created = null;
                 DateTime? modified = null;
+                DateTime? accessed = null;
                 EverythingItemAttributes? attributes = null;
 
                 if ((requestFlags & EverythingIpc.RequestName) != 0)
@@ -453,20 +457,17 @@ namespace VoidSniffer.Everything
                 }
                 if ((requestFlags & EverythingIpc.RequestDateCreated) != 0)
                 {
+                    created = ReadFileTime(mem, dataOffset);
                     dataOffset += 8;
                 }
                 if ((requestFlags & EverythingIpc.RequestDateModified) != 0)
                 {
-                    long timecode = Marshal.ReadInt64(mem + dataOffset);
-                    if (timecode > 0)
-                    {
-                        try { modified = DateTime.FromFileTime(timecode); }
-                        catch (ArgumentException) { modified = null; }
-                    }
+                    modified = ReadFileTime(mem, dataOffset);
                     dataOffset += 8;
                 }
                 if ((requestFlags & EverythingIpc.RequestDateAccessed) != 0)
                 {
+                    accessed = ReadFileTime(mem, dataOffset);
                     dataOffset += 8;
                 }
                 if ((requestFlags & EverythingIpc.RequestAttributes) != 0)
@@ -482,13 +483,23 @@ namespace VoidSniffer.Everything
                         Name = name,
                         Path = path,
                         Size = size,
+                        CreationTime = created,
                         LastWriteTime = modified,
+                        LastAccessTime = accessed,
                         Attributes = attributes
                     });
                 }
             }
 
             Result = new EverythingResult { TotalItems = total, Offset = offset, Items = items.ToArray() };
+        }
+
+        private static DateTime? ReadFileTime(IntPtr mem, int offset)
+        {
+            long timecode = Marshal.ReadInt64(mem + offset);
+            if (timecode <= 0) return null;
+            try { return DateTime.FromFileTime(timecode); }
+            catch (ArgumentException) { return null; }
         }
 
         private static EverythingItemFlags MapItemFlags(int value)
