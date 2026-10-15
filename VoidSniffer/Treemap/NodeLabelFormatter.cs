@@ -18,34 +18,12 @@ namespace VoidSniffer.Treemap
         }
 
         /// <summary>
-        /// Line 2: for folders, the logical size, the estimated on-disk size, and the
-        /// recursive folder/file counts; for files, just the size.
+        /// Line 2 of a tile label: just the size. Everything else (on-disk size, counts,
+        /// dates, path) lives in the hover tooltip to keep the tiles uncluttered.
         /// </summary>
         public static string DescribeDetails(FileNode node)
         {
-            if (node == null) return string.Empty;
-
-            var sb = new StringBuilder();
-            sb.Append(FormatSize(node.TotalSize));
-
-            if (!node.IsFolder) return sb.ToString();
-
-            if (node.HasOnDisk)
-            {
-                sb.Append("  ·  ≈");
-                sb.Append(FormatSize(node.OnDiskSize));
-                sb.Append(" на диске");
-            }
-
-            if (node.HasCounts)
-            {
-                sb.Append("  ·  ");
-                sb.Append(FormatCount(node.FolderCount, "папка", "папки", "папок"));
-                sb.Append(", ");
-                sb.Append(FormatCount(node.FileCount, "файл", "файла", "файлов"));
-            }
-
-            return sb.ToString();
+            return node == null ? string.Empty : FormatSize(node.TotalSize);
         }
 
         /// <summary>Title line of the hover tooltip (the node name).</summary>

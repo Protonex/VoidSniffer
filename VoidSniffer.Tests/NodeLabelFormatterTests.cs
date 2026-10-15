@@ -17,42 +17,30 @@ namespace VoidSniffer.Tests
         }
 
         [Fact]
-        public void DescribeDetails_FolderWithCounts_ShowsSizeAndCounts()
+        public void DescribeDetails_Folder_ShowsSizeOnly_CountsAndDiskMovedToTooltip()
         {
             FileNode folder = TestTree.Folder("docs");
             folder.TotalSize = 1024 * 1024;
             folder.FileCount = 5;
             folder.FolderCount = 2;
+            folder.OnDiskSize = 1024 * 1024 + 4096;
 
             string text = NodeLabelFormatter.DescribeDetails(folder);
 
-            Assert.Contains("1 МБ", text);
-            Assert.Contains("2 папки", text);
-            Assert.Contains("5 файлов", text);
+            Assert.Equal("1 МБ", text);
+            Assert.DoesNotContain("папк", text);
+            Assert.DoesNotContain("файл", text);
+            Assert.DoesNotContain("диске", text);
         }
 
         [Fact]
-        public void DescribeDetails_FolderShowsOnDiskWhenResolved()
-        {
-            FileNode folder = TestTree.Folder("docs");
-            folder.TotalSize = 100;
-            folder.OnDiskSize = 4096;
-            folder.FileCount = 1;
-            folder.FolderCount = 0;
-
-            string text = NodeLabelFormatter.DescribeDetails(folder);
-            Assert.Contains("≈4 КБ на диске", text);
-        }
-
-        [Fact]
-        public void DescribeDetails_FolderWithoutCounts_OmitsCounts()
+        public void DescribeDetails_FolderWithoutCounts_ShowsSizeOnly()
         {
             FileNode folder = TestTree.Folder("docs");
             folder.TotalSize = 500;
 
             string text = NodeLabelFormatter.DescribeDetails(folder);
-            Assert.DoesNotContain("папк", text);
-            Assert.DoesNotContain("файл", text);
+            Assert.Equal("500 Б", text);
         }
 
         [Theory]
