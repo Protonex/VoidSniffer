@@ -62,6 +62,15 @@ namespace VoidSniffer
             treemap.ZoomOutRequested += (s, e) => _navigation.ZoomUp();
             treemap.HoverChanged += Treemap_HoverChanged;
             treemap.SelectionChanged += Treemap_SelectionChanged;
+            treemap.ContextMenuRequested += Treemap_ContextMenuRequested;
+        }
+
+        private void Treemap_ContextMenuRequested(object sender, TreemapContextMenuEventArgs e)
+        {
+            if (e.Node == null || string.IsNullOrEmpty(e.Node.FullPath)) return;
+
+            treemap.Select(e.Node);
+            ShellContextMenu.Show(Handle, e.Node.FullPath, e.ScreenLocation.X, e.ScreenLocation.Y);
         }
 
         private void MainForm_Load(object sender, EventArgs e)

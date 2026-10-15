@@ -62,6 +62,7 @@
     <Compile Include="Services\IEverythingFileSource.cs" />
     <Compile Include="Services\PathUtil.cs" />
     <Compile Include="Services\ProgressiveTreeLoader.cs" />
+    <Compile Include="Services\ShellContextMenu.cs" />
     <Compile Include="Treemap\NodeLabelFormatter.cs" />
     <Compile Include="Treemap\TreemapBlock.cs" />
     <Compile Include="Treemap\TreemapColorizer.cs" />

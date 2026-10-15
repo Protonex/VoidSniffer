@@ -19,6 +19,20 @@ namespace VoidSniffer.Treemap
         public FileNode Node { get; private set; }
     }
 
+    /// <summary>Request to show a context menu for a node at a screen location.</summary>
+    public sealed class TreemapContextMenuEventArgs : EventArgs
+    {
+        public TreemapContextMenuEventArgs(FileNode node, Point screenLocation)
+        {
+            Node = node;
+            ScreenLocation = screenLocation;
+        }
+
+        public FileNode Node { get; private set; }
+
+        public Point ScreenLocation { get; private set; }
+    }
+
     /// <summary>
     /// GDI+ treemap view: renders the children of <see cref="Content"/>, supports
     /// hit-testing and reports user intent through events. It deliberately owns no
@@ -37,6 +51,7 @@ namespace VoidSniffer.Treemap
         private readonly Dictionary<int, SolidBrush> _brushCache = new Dictionary<int, SolidBrush>();
         private readonly ToolTip _toolTip = new ToolTip();
         private readonly Timer _hoverTimer = new Timer();
+        private readonly Timer _rightPressTimer = new Timer();
         private Pen _borderPen;
 
         private Font _labelFont;
@@ -47,10 +62,15 @@ namespace VoidSniffer.Treemap
         private FileNode _toolTipNode;
         private FileNode _selected;
         private DateTime _hoverStartedUtc;
+        private Point _rightPressPoint;
+        private FileNode _rightPressNode;
+        private bool _longPressTriggered;
 
         private const int MaxLabels = 4000;
         private const int HighlightMargin = 3;
         private const int HoverAnimationMs = 380;
+        private const int LongPressMs = 550;
+        private const int LongPressMoveTolerance = 4;
 
         /// <summary>A block was double-clicked (drill in).</summary>
         public event EventHandler<TreemapNodeEventArgs> BlockActivated;
@@ -60,6 +80,9 @@ namespace VoidSniffer.Treemap
 
         public event EventHandler<TreemapNodeEventArgs> HoverChanged;
         public event EventHandler<TreemapNodeEventArgs> SelectionChanged;
+
+        /// <summary>A long right-button press requests the context menu for a node.</summary>
+        public event EventHandler<TreemapContextMenuEventArgs> ContextMenuRequested;
 
         public TreemapControl()
         {
@@ -78,10 +101,19 @@ namespace VoidSniffer.Treemap
             _hoverTimer.Interval = 15;
             _hoverTimer.Tick += (s, e) => OnHoverTick();
 
+            _rightPressTimer.Interval = LongPressMs;
+            _rightPressTimer.Tick += (s, e) => OnRightPressTick();
+
             _tipTitleFont = new Font("Segoe UI", 8f, FontStyle.Bold, GraphicsUnit.Point);
             _toolTip.OwnerDraw = true;
             _toolTip.Popup += OnToolTipPopup;
             _toolTip.Draw += OnToolTipDraw;
+
+            // Keep the tooltip visible for a long time so it does not vanish while reading.
+            _toolTip.AutoPopDelay = 30000;
+            _toolTip.InitialDelay = 300;
+            _toolTip.ReshowDelay = 100;
+            _toolTip.ShowAlways = true;
         }
 
         /// <summary>Node whose children are currently rendered.</summary>
@@ -406,7 +438,13 @@ namespace VoidSniffer.Treemap
             base.OnMouseDown(e);
             if (e.Button == MouseButtons.Right)
             {
-                Raise(ZoomOutRequested, EventArgs.Empty);
+                // A short right-click zooms out (on release); a long press opens the
+                // context menu.
+                TreemapBlock block = HitTestBlock(e.Location);
+                _rightPressNode = block != null ? block.Node : null;
+                _rightPressPoint = e.Location;
+                _longPressTriggered = false;
+                if (_rightPressNode != null) _rightPressTimer.Start();
                 return;
             }
             if (e.Button == MouseButtons.Left)
@@ -416,9 +454,44 @@ namespace VoidSniffer.Treemap
             }
         }
 
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            base.OnMouseUp(e);
+
+            if (e.Button != MouseButtons.Right) return;
+
+            if (_rightPressTimer.Enabled) _rightPressTimer.Stop();
+
+            if (!_longPressTriggered)
+            {
+                Raise(ZoomOutRequested, EventArgs.Empty);
+            }
+
+            _longPressTriggered = false;
+            _rightPressNode = null;
+        }
+
+        private void OnRightPressTick()
+        {
+            _rightPressTimer.Stop();
+            if (_rightPressNode == null) return;
+
+            _longPressTriggered = true;
+            Point screen = PointToScreen(_rightPressPoint);
+            Raise(ContextMenuRequested, new TreemapContextMenuEventArgs(_rightPressNode, screen));
+        }
+
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
+
+            // Moving while the right button is held means it is a drag, not a long press.
+            if (_rightPressTimer.Enabled &&
+                (Math.Abs(e.X - _rightPressPoint.X) > LongPressMoveTolerance ||
+                 Math.Abs(e.Y - _rightPressPoint.Y) > LongPressMoveTolerance))
+            {
+                _rightPressTimer.Stop();
+            }
 
             TreemapBlock block = HitTestBlock(e.Location);
             FileNode node = block != null ? block.Node : null;
@@ -514,6 +587,7 @@ namespace VoidSniffer.Treemap
         protected override void OnMouseLeave(EventArgs e)
         {
             base.OnMouseLeave(e);
+            _rightPressTimer.Stop();
             if (_hoverNode == null) return;
 
             FileNode previous = _hoverNode;
@@ -535,6 +609,11 @@ namespace VoidSniffer.Treemap
         }
 
         private void Raise(EventHandler<TreemapNodeEventArgs> handler, TreemapNodeEventArgs args)
+        {
+            if (handler != null) handler(this, args);
+        }
+
+        private void Raise(EventHandler<TreemapContextMenuEventArgs> handler, TreemapContextMenuEventArgs args)
         {
             if (handler != null) handler(this, args);
         }
@@ -564,6 +643,7 @@ namespace VoidSniffer.Treemap
                     _borderPen = null;
                 }
                 _hoverTimer.Dispose();
+                _rightPressTimer.Dispose();
                 _toolTip.Dispose();
                 ClearBrushCache();
             }
