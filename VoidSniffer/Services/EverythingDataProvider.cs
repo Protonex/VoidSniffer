@@ -99,6 +99,62 @@ namespace VoidSniffer.Services
         }
 
         /// <summary>
+        /// Fetches only the direct children of <paramref name="path"/> (non-recursive).
+        /// This is the cheap query used for progressive, level-by-level tree building;
+        /// it avoids the one big subtree request that stalls the UI.
+        /// </summary>
+        public List<FileSystemItem> GetChildren(string path, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                throw new ArgumentException("path is empty", "path");
+            }
+            if (!_client.IsAvailable())
+            {
+                throw new EverythingNotAvailableException();
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            string query = BuildChildrenQuery(path);
+            EverythingResult result = _client.Search(
+                query,
+                EverythingSearchFlags.None,
+                MaxResults,
+                0,
+                EverythingSort.None,
+                false,
+                EverythingBusyBehavior.WaitOrError);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var items = new List<FileSystemItem>(result.Items.Length);
+            for (int i = 0; i < result.Items.Length; i++)
+            {
+                EverythingItem source = result.Items[i];
+                long size = source.Size.HasValue ? (long)source.Size.Value : 0;
+                items.Add(new FileSystemItem
+                {
+                    Name = source.Name,
+                    ParentPath = source.Path,
+                    FullPath = PathUtil.Combine(source.Path, source.Name),
+                    IsFolder = source.IsFolder,
+                    Size = size,
+                    ModifiedTime = source.LastWriteTime
+                });
+            }
+
+            LastTotalItems = result.TotalItems;
+            LastReturnedCount = items.Count;
+            return items;
+        }
+
+        public Task<List<FileSystemItem>> GetChildrenAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.Run(() => GetChildren(path, cancellationToken), cancellationToken);
+        }
+
+        /// <summary>
         /// Builds an Everything query that selects the whole subtree of a folder.
         /// The trailing separator is significant: it prevents sibling folders whose
         /// names share a prefix from matching.
@@ -111,6 +167,17 @@ namespace VoidSniffer.Services
                 normalized += "\\";
             }
             return "\"" + normalized + "\"";
+        }
+
+        /// <summary>
+        /// Builds an Everything query that selects only the direct children of a folder.
+        /// The <c>parent:</c> function (Everything 1.4+) matches items whose immediate
+        /// parent is the given path and does not descend into subfolders.
+        /// </summary>
+        internal static string BuildChildrenQuery(string path)
+        {
+            string normalized = PathUtil.Normalize(path);
+            return "parent:\"" + normalized + "\"";
         }
     }
 }

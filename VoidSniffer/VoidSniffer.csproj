@@ -59,6 +59,7 @@
     <Compile Include="Services\FilterService.cs" />
     <Compile Include="Services\NavigationController.cs" />
     <Compile Include="Services\PathUtil.cs" />
+    <Compile Include="Services\ProgressiveTreeLoader.cs" />
     <Compile Include="Treemap\TreemapBlock.cs" />
     <Compile Include="Treemap\TreemapColorizer.cs" />
     <Compile Include="Treemap\TreemapControl.cs" />

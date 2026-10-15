@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -16,7 +15,6 @@ namespace VoidSniffer
     public partial class MainForm : Form
     {
         private readonly EverythingDataProvider _provider = new EverythingDataProvider();
-        private readonly FileSystemTreeBuilder _treeBuilder = new FileSystemTreeBuilder();
         private readonly NavigationController _navigation = new NavigationController();
         private readonly FilterService _filterService = new FilterService();
 
@@ -156,21 +154,42 @@ namespace VoidSniffer
             _cts = cts;
 
             SetBusy(true, "Запрос к индексу Everything…");
+
+            // The tree is built level by level; each level raises ProgressChanged so the
+            // treemap fills in as data arrives instead of waiting for the whole subtree.
+            var loader = new ProgressiveTreeLoader(_provider);
+            bool rootPublished = false;
+
+            loader.ProgressChanged += (s, e) =>
+            {
+                if (!ReferenceEquals(_cts, cts)) return;
+
+                if (!rootPublished)
+                {
+                    rootPublished = true;
+                    _fullRoot = loader.Root;
+                    _navigation.SetRoot(_fullRoot);
+                }
+
+                int nodes = RefreshView();
+                SetStatus(string.Format("{0} — построение… уровень {1}, узлов {2:N0}, объём {3}, папок в очереди {4:N0}",
+                    normalized, e.Level, nodes, FormatSize(e.TotalSize), e.PendingFolders));
+            };
+
             try
             {
-                List<FileSystemItem> items = await _provider.GetItemsAsync(normalized, cts.Token);
-                FileNode root = await Task.Run(() => _treeBuilder.Build(items, normalized), cts.Token);
+                await loader.LoadAsync(normalized, cts.Token);
 
-                string suffix = _provider.LastResultTruncated
-                    ? string.Format(" (лимит {0:N0}, в индексе {1:N0})", _provider.MaxResults, _provider.LastTotalItems)
+                _fullRoot = loader.Root;
+                RefreshView();
+
+                string suffix = loader.TruncatedFolderCount > 0
+                    ? string.Format(" (лимит {0:N0} на папку, усечено папок: {1:N0})",
+                        _provider.MaxResults, loader.TruncatedFolderCount)
                     : string.Empty;
 
-                _fullRoot = root;
-                _navigation.SetRoot(root);
-                ApplyFilter();
-
-                SetStatus(string.Format("{0} — получено: {1:N0} элементов{2}",
-                    normalized, items.Count, suffix));
+                SetStatus(string.Format("{0} — готово: узлов {1:N0}, объём {2}{3}",
+                    normalized, FilterService.CountNodes(_navigation.Root), FormatSize(_fullRoot.TotalSize), suffix));
             }
             catch (OperationCanceledException)
             {
@@ -189,10 +208,10 @@ namespace VoidSniffer
             }
             finally
             {
-                SetBusy(false, null);
                 if (ReferenceEquals(_cts, cts))
                 {
                     _cts = null;
+                    SetBusy(false, null);
                 }
                 cts.Dispose();
             }
@@ -203,6 +222,21 @@ namespace VoidSniffer
         {
             if (_fullRoot == null) return;
 
+            int nodes = RefreshView();
+            FilterCriteria criteria = BuildCriteria();
+            string note = criteria.HasActiveFilters ? "  |  фильтр: " + DescribeCriteria(criteria) : string.Empty;
+            SetStatus(string.Format("{0} — узлов: {1:N0}, объём: {2}{3}",
+                _navigation.Root.FullPath, nodes, FormatSize(_navigation.Root.TotalSize), note));
+        }
+
+        /// <summary>
+        /// Recomputes the filtered view over the current (possibly still growing) tree,
+        /// restores the previously focused folder when possible and repaints. Returns the
+        /// number of nodes in the resulting view. Safe to call repeatably during a
+        /// progressive load.
+        /// </summary>
+        private int RefreshView()
+        {
             FilterCriteria criteria = BuildCriteria();
             string previousPath = _navigation.Focus != null ? _navigation.Focus.FullPath : null;
 
@@ -218,10 +252,7 @@ namespace VoidSniffer
                 }
             }
 
-            int nodes = FilterService.CountNodes(view);
-            string note = criteria.HasActiveFilters ? "  |  фильтр: " + DescribeCriteria(criteria) : string.Empty;
-            SetStatus(string.Format("{0} — узлов: {1:N0}, объём: {2}{3}",
-                view.FullPath, nodes, FormatSize(view.TotalSize), note));
+            return FilterService.CountNodes(_navigation.Root);
         }
 
         private void ResetFilter()
