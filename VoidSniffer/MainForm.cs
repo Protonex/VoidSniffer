@@ -25,6 +25,7 @@ namespace VoidSniffer
         private ProgressiveTreeLoader _loader;
         private bool _expanding;
         private CancellationTokenSource _enrichCts;
+        private CancellationTokenSource _autoExpandCts;
         private readonly Dictionary<string, Tuple<long, long>> _countCache =
             new Dictionary<string, Tuple<long, long>>(StringComparer.OrdinalIgnoreCase);
 
@@ -182,6 +183,8 @@ namespace VoidSniffer
                     : string.Empty;
                 SetStatus(string.Format("{0} — узлов: {1:N0}, объём: {2}{3}",
                     normalized, loader.NodeCount, FormatSize(loader.Root.TotalSize), suffix));
+
+                StartAutoExpansion();
             }
             catch (OperationCanceledException)
             {
@@ -305,6 +308,87 @@ namespace VoidSniffer
             UpdateNavigation();
             EnsureFocusExpanded(_navigation.Focus);
             StartCountEnrichment();
+        }
+
+        /// <summary>
+        /// Expands the largest folders in the background, breadth-first and depth-limited,
+        /// so subfolders render recursively inside the tiles. Bounded by a time budget and
+        /// the folder size threshold; restarting from a new view cancels the previous run.
+        /// </summary>
+        private void StartAutoExpansion()
+        {
+            if (_autoExpandCts != null)
+            {
+                try { _autoExpandCts.Cancel(); }
+                catch (ObjectDisposedException) { }
+                _autoExpandCts = null;
+            }
+
+            if (_fullRoot == null || _loader == null) return;
+
+            var cts = new CancellationTokenSource();
+            _autoExpandCts = cts;
+            _ = AutoExpandAsync(_fullRoot, cts);
+        }
+
+        private async Task AutoExpandAsync(FileNode root, CancellationTokenSource cts)
+        {
+            CancellationToken token = cts.Token;
+            long threshold = AutoExpansionPolicy.SizeThreshold(root.TotalSize);
+            int maxDepth = AutoExpansionPolicy.DefaultMaxDepth;
+            const int budget = 300;
+
+            var pending = new List<FileNode>();
+            for (int i = 0; i < root.Children.Count; i++)
+            {
+                FileNode child = root.Children[i];
+                if (AutoExpansionPolicy.IsEligible(child, threshold, maxDepth)) pending.Add(child);
+            }
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            int expanded = 0;
+
+            while (pending.Count > 0 && expanded < budget && stopwatch.ElapsedMilliseconds < 12000)
+            {
+                if (token.IsCancellationRequested || !ReferenceEquals(_autoExpandCts, cts)) break;
+
+                int index = AutoExpansionPolicy.IndexOfLargest(pending);
+                if (index < 0) break;
+
+                FileNode folder = pending[index];
+                pending.RemoveAt(index);
+
+                if (_loader.IsExpanded(folder)) continue;
+
+                try
+                {
+                    if (!await _loader.ExpandAsync(folder, token)) continue;
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+
+                expanded++;
+                for (int i = 0; i < folder.Children.Count; i++)
+                {
+                    FileNode child = folder.Children[i];
+                    if (AutoExpansionPolicy.IsEligible(child, threshold, maxDepth)) pending.Add(child);
+                }
+
+                if (ReferenceEquals(_navigation.Root, _fullRoot))
+                {
+                    treemap.Invalidate();
+                }
+                else
+                {
+                    RefreshView();
+                }
+            }
         }
 
         /// <summary>
@@ -479,6 +563,13 @@ namespace VoidSniffer
 
         private void CancelPending()
         {
+            if (_autoExpandCts != null)
+            {
+                try { _autoExpandCts.Cancel(); }
+                catch (ObjectDisposedException) { }
+                _autoExpandCts = null;
+            }
+
             if (_enrichCts != null)
             {
                 try { _enrichCts.Cancel(); }

@@ -69,6 +69,28 @@ namespace VoidSniffer.Treemap
             return luminance > 0.58 ? Color.FromArgb(48, 40, 30) : Color.FromArgb(250, 248, 244);
         }
 
+        /// <summary>Hover overlay color (painted over the hovered tile to lighten it).</summary>
+        public static readonly Color HoverOverlay = Color.White;
+
+        /// <summary>Overlay alpha right when the pointer enters a tile (bright flash).</summary>
+        public const int HoverStartAlpha = 150;
+
+        /// <summary>Overlay alpha the hover settles at (slightly lighter than the tile).</summary>
+        public const int HoverEndAlpha = 45;
+
+        /// <summary>
+        /// Eased hover overlay alpha for an animation <paramref name="progress"/> in [0, 1]:
+        /// starts bright and fades quickly (ease-out) to the subtle resting highlight.
+        /// </summary>
+        public static int HoverAlpha(double progress)
+        {
+            if (progress < 0.0) progress = 0.0;
+            if (progress > 1.0) progress = 1.0;
+
+            double eased = 1.0 - Math.Pow(1.0 - progress, 2.0);
+            return (int)Math.Round(HoverStartAlpha + ((HoverEndAlpha - HoverStartAlpha) * eased));
+        }
+
         private static string GetExtension(FileNode node)
         {
             string name = node.Name ?? string.Empty;

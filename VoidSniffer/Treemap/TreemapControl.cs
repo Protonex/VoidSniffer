@@ -36,6 +36,7 @@ namespace VoidSniffer.Treemap
         private readonly TreemapLayoutCache _cache;
         private readonly Dictionary<int, SolidBrush> _brushCache = new Dictionary<int, SolidBrush>();
         private readonly ToolTip _toolTip = new ToolTip();
+        private readonly Timer _hoverTimer = new Timer();
         private Pen _borderPen;
 
         private Font _labelFont;
@@ -43,9 +44,11 @@ namespace VoidSniffer.Treemap
         private FileNode _content;
         private FileNode _hoverNode;
         private FileNode _selected;
+        private DateTime _hoverStartedUtc;
 
         private const int MaxLabels = 4000;
         private const int HighlightMargin = 3;
+        private const int HoverAnimationMs = 380;
 
         /// <summary>A block was double-clicked (drill in).</summary>
         public event EventHandler<TreemapNodeEventArgs> BlockActivated;
@@ -69,6 +72,9 @@ namespace VoidSniffer.Treemap
             _labelFont = new Font("Segoe UI", 7.5f, FontStyle.Regular, GraphicsUnit.Point);
             _detailFont = new Font("Segoe UI", 6.5f, FontStyle.Regular, GraphicsUnit.Point);
             _cache = new TreemapLayoutCache(_options);
+
+            _hoverTimer.Interval = 15;
+            _hoverTimer.Tick += (s, e) => OnHoverTick();
         }
 
         /// <summary>Node whose children are currently rendered.</summary>
@@ -104,6 +110,7 @@ namespace VoidSniffer.Treemap
             _content = node;
             _selected = null;
             _hoverNode = null;
+            _hoverTimer.Stop();
             _cache.Invalidate();
             Invalidate();
         }
@@ -183,15 +190,58 @@ namespace VoidSniffer.Treemap
                 g.DrawRectangle(GetBorderPen(), rect.X, rect.Y, rect.Width - 1, rect.Height - 1);
             }
 
-            DrawHighlight(g, clip, _cache.Find(_hoverNode), Color.FromArgb(120, 90, 60, 20), 1);
-            DrawHighlight(g, clip, _cache.Find(_selected), Color.FromArgb(255, 255, 255), 2);
-
             // Pass 2: labels on top, so an inner container's label is never painted over
             // by an adjacent outer tile.
             int labelBudget = MaxLabels;
             for (int i = 0; i < blocks.Count && labelBudget > 0; i++)
             {
                 labelBudget -= DrawLabel(g, clip, blocks[i]);
+            }
+
+            // Pass 3: the animated hover lightening, painted over the whole tile (and its
+            // children), then the selection outline on top of it.
+            DrawHover(g, clip);
+            DrawHighlight(g, clip, _cache.Find(_selected), Color.FromArgb(255, 255, 255), 2);
+        }
+
+        private void DrawHover(Graphics g, Rectangle clip)
+        {
+            if (_hoverNode == null) return;
+
+            TreemapBlock block = _cache.Find(_hoverNode);
+            if (block == null) return;
+
+            Rectangle rect = TreemapLayoutCache.ToClientRect(block.Bounds);
+            if (rect.Width < 2 || rect.Height < 2) return;
+            if (!rect.IntersectsWith(clip)) return;
+
+            int alpha = CurrentHoverAlpha();
+            using (var brush = new SolidBrush(Color.FromArgb(alpha, TreemapColorizer.HoverOverlay)))
+            {
+                g.FillRectangle(brush, rect);
+            }
+        }
+
+        private int CurrentHoverAlpha()
+        {
+            double elapsed = (DateTime.UtcNow - _hoverStartedUtc).TotalMilliseconds;
+            double progress = elapsed / HoverAnimationMs;
+            return TreemapColorizer.HoverAlpha(progress);
+        }
+
+        private void OnHoverTick()
+        {
+            if (_hoverNode == null)
+            {
+                _hoverTimer.Stop();
+                return;
+            }
+
+            InvalidateBlock(_hoverNode);
+
+            if ((DateTime.UtcNow - _hoverStartedUtc).TotalMilliseconds >= HoverAnimationMs)
+            {
+                _hoverTimer.Stop();
             }
         }
 
@@ -328,6 +378,7 @@ namespace VoidSniffer.Treemap
         {
             base.OnResize(e);
             _hoverNode = null;
+            _hoverTimer.Stop();
         }
 
         protected override void OnMouseDoubleClick(MouseEventArgs e)
@@ -368,6 +419,17 @@ namespace VoidSniffer.Treemap
             FileNode previous = _hoverNode;
             _hoverNode = node;
 
+            if (node != null)
+            {
+                // Restart the flash-and-fade for the newly hovered tile.
+                _hoverStartedUtc = DateTime.UtcNow;
+                if (!_hoverTimer.Enabled) _hoverTimer.Start();
+            }
+            else
+            {
+                _hoverTimer.Stop();
+            }
+
             InvalidateBlock(previous);
             InvalidateBlock(node);
 
@@ -393,6 +455,7 @@ namespace VoidSniffer.Treemap
 
             FileNode previous = _hoverNode;
             _hoverNode = null;
+            _hoverTimer.Stop();
             InvalidateBlock(previous);
             Raise(HoverChanged, new TreemapNodeEventArgs(null));
         }
@@ -432,6 +495,7 @@ namespace VoidSniffer.Treemap
                     _borderPen.Dispose();
                     _borderPen = null;
                 }
+                _hoverTimer.Dispose();
                 _toolTip.Dispose();
                 ClearBrushCache();
             }

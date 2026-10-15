@@ -15,6 +15,10 @@ namespace VoidSniffer.Services
     {
         private readonly EverythingClient _client;
 
+        // Everything's IPC handles a single query at a time; serialize all calls so
+        // lazy expansions and count lookups running on different threads cannot collide.
+        private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
+
         public EverythingDataProvider()
         {
             _client = new EverythingClient();
@@ -60,37 +64,45 @@ namespace VoidSniffer.Services
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            string query = BuildSubtreeQuery(path);
-            EverythingResult result = _client.Search(
-                query,
-                EverythingSearchFlags.MatchPath,
-                MaxResults,
-                0,
-                EverythingSort.None,
-                false,
-                EverythingBusyBehavior.WaitOrError);
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var items = new List<FileSystemItem>(result.Items.Length);
-            for (int i = 0; i < result.Items.Length; i++)
+            _gate.Wait(cancellationToken);
+            try
             {
-                EverythingItem source = result.Items[i];
-                long size = source.Size.HasValue ? (long)source.Size.Value : 0;
-                items.Add(new FileSystemItem
-                {
-                    Name = source.Name,
-                    ParentPath = source.Path,
-                    FullPath = PathUtil.Combine(source.Path, source.Name),
-                    IsFolder = source.IsFolder,
-                    Size = size,
-                    ModifiedTime = source.LastWriteTime
-                });
-            }
+                string query = BuildSubtreeQuery(path);
+                EverythingResult result = _client.Search(
+                    query,
+                    EverythingSearchFlags.MatchPath,
+                    MaxResults,
+                    0,
+                    EverythingSort.None,
+                    false,
+                    EverythingBusyBehavior.WaitOrError);
 
-            LastTotalItems = result.TotalItems;
-            LastReturnedCount = items.Count;
-            return items;
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var items = new List<FileSystemItem>(result.Items.Length);
+                for (int i = 0; i < result.Items.Length; i++)
+                {
+                    EverythingItem source = result.Items[i];
+                    long size = source.Size.HasValue ? (long)source.Size.Value : 0;
+                    items.Add(new FileSystemItem
+                    {
+                        Name = source.Name,
+                        ParentPath = source.Path,
+                        FullPath = PathUtil.Combine(source.Path, source.Name),
+                        IsFolder = source.IsFolder,
+                        Size = size,
+                        ModifiedTime = source.LastWriteTime
+                    });
+                }
+
+                LastTotalItems = result.TotalItems;
+                LastReturnedCount = items.Count;
+                return items;
+            }
+            finally
+            {
+                _gate.Release();
+            }
         }
 
         public Task<List<FileSystemItem>> GetItemsAsync(string path, CancellationToken cancellationToken)
@@ -116,37 +128,45 @@ namespace VoidSniffer.Services
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            string query = BuildChildrenQuery(path);
-            EverythingResult result = _client.Search(
-                query,
-                EverythingSearchFlags.None,
-                MaxResults,
-                0,
-                EverythingSort.None,
-                false,
-                EverythingBusyBehavior.WaitOrError);
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var items = new List<FileSystemItem>(result.Items.Length);
-            for (int i = 0; i < result.Items.Length; i++)
+            _gate.Wait(cancellationToken);
+            try
             {
-                EverythingItem source = result.Items[i];
-                long size = source.Size.HasValue ? (long)source.Size.Value : 0;
-                items.Add(new FileSystemItem
-                {
-                    Name = source.Name,
-                    ParentPath = source.Path,
-                    FullPath = PathUtil.Combine(source.Path, source.Name),
-                    IsFolder = source.IsFolder,
-                    Size = size,
-                    ModifiedTime = source.LastWriteTime
-                });
-            }
+                string query = BuildChildrenQuery(path);
+                EverythingResult result = _client.Search(
+                    query,
+                    EverythingSearchFlags.None,
+                    MaxResults,
+                    0,
+                    EverythingSort.None,
+                    false,
+                    EverythingBusyBehavior.WaitOrError);
 
-            LastTotalItems = result.TotalItems;
-            LastReturnedCount = items.Count;
-            return items;
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var items = new List<FileSystemItem>(result.Items.Length);
+                for (int i = 0; i < result.Items.Length; i++)
+                {
+                    EverythingItem source = result.Items[i];
+                    long size = source.Size.HasValue ? (long)source.Size.Value : 0;
+                    items.Add(new FileSystemItem
+                    {
+                        Name = source.Name,
+                        ParentPath = source.Path,
+                        FullPath = PathUtil.Combine(source.Path, source.Name),
+                        IsFolder = source.IsFolder,
+                        Size = size,
+                        ModifiedTime = source.LastWriteTime
+                    });
+                }
+
+                LastTotalItems = result.TotalItems;
+                LastReturnedCount = items.Count;
+                return items;
+            }
+            finally
+            {
+                _gate.Release();
+            }
         }
 
         public Task<List<FileSystemItem>> GetChildrenAsync(string path, CancellationToken cancellationToken)
@@ -173,28 +193,36 @@ namespace VoidSniffer.Services
 
             string subtree = BuildSubtreeQuery(path);
 
-            cancellationToken.ThrowIfCancellationRequested();
-            EverythingResult files = _client.Search(
-                subtree + " file:",
-                EverythingSearchFlags.MatchPath,
-                0,
-                0,
-                EverythingSort.None,
-                false,
-                EverythingBusyBehavior.WaitOrError);
+            _gate.Wait(cancellationToken);
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                EverythingResult files = _client.Search(
+                    subtree + " file:",
+                    EverythingSearchFlags.MatchPath,
+                    0,
+                    0,
+                    EverythingSort.None,
+                    false,
+                    EverythingBusyBehavior.WaitOrError);
 
-            cancellationToken.ThrowIfCancellationRequested();
-            EverythingResult folders = _client.Search(
-                subtree + " folder:",
-                EverythingSearchFlags.MatchPath,
-                0,
-                0,
-                EverythingSort.None,
-                false,
-                EverythingBusyBehavior.WaitOrError);
+                cancellationToken.ThrowIfCancellationRequested();
+                EverythingResult folders = _client.Search(
+                    subtree + " folder:",
+                    EverythingSearchFlags.MatchPath,
+                    0,
+                    0,
+                    EverythingSort.None,
+                    false,
+                    EverythingBusyBehavior.WaitOrError);
 
-            fileCount = files.TotalItems;
-            folderCount = folders.TotalItems;
+                fileCount = files.TotalItems;
+                folderCount = folders.TotalItems;
+            }
+            finally
+            {
+                _gate.Release();
+            }
         }
 
         public Task<Tuple<long, long>> GetCountsAsync(string path, CancellationToken cancellationToken)

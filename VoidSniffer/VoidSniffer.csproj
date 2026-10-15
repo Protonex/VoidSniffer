@@ -54,6 +54,7 @@
     <Compile Include="Model\FileNode.cs" />
     <Compile Include="Model\FileSystemItem.cs" />
     <Compile Include="Model\FilterCriteria.cs" />
+    <Compile Include="Services\AutoExpansionPolicy.cs" />
     <Compile Include="Services\DiskUsageInfo.cs" />
     <Compile Include="Services\EverythingDataProvider.cs" />    <Compile Include="Services\FileSystemTreeBuilder.cs" />
     <Compile Include="Services\FilterService.cs" />

@@ -153,6 +153,21 @@ namespace VoidSniffer.Tests
             Assert.True(TreemapColorizer.GetTextColor(light).R < 128);
             Assert.True(TreemapColorizer.GetTextColor(dark).R > 128);
         }
+
+        [Fact]
+        public void HoverAlpha_StartsBrightAndFadesToSubtle()
+        {
+            Assert.Equal(TreemapColorizer.HoverStartAlpha, TreemapColorizer.HoverAlpha(0.0));
+            Assert.Equal(TreemapColorizer.HoverEndAlpha, TreemapColorizer.HoverAlpha(1.0));
+
+            int mid = TreemapColorizer.HoverAlpha(0.5);
+            Assert.True(mid < TreemapColorizer.HoverStartAlpha);
+            Assert.True(mid > TreemapColorizer.HoverEndAlpha);
+
+            // Monotonically decreasing and clamped outside [0, 1].
+            Assert.Equal(TreemapColorizer.HoverStartAlpha, TreemapColorizer.HoverAlpha(-5));
+            Assert.Equal(TreemapColorizer.HoverEndAlpha, TreemapColorizer.HoverAlpha(5));
+        }
     }
 
     public class TreemapLayoutCacheTests
