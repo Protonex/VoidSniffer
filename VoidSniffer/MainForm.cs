@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -22,6 +23,9 @@ namespace VoidSniffer
         private FileNode _fullRoot;
         private ProgressiveTreeLoader _loader;
         private bool _expanding;
+        private CancellationTokenSource _enrichCts;
+        private readonly Dictionary<string, Tuple<long, long>> _countCache =
+            new Dictionary<string, Tuple<long, long>>(StringComparer.OrdinalIgnoreCase);
 
         public MainForm()
         {
@@ -299,6 +303,113 @@ namespace VoidSniffer
             treemap.SetContent(_navigation.Focus);
             UpdateNavigation();
             EnsureFocusExpanded(_navigation.Focus);
+            StartCountEnrichment();
+        }
+
+        /// <summary>
+        /// Applies cached recursive file/folder counts to the current view so labels show
+        /// them without re-querying.
+        /// </summary>
+        private void ApplyCachedCounts(FileNode node)
+        {
+            if (node == null) return;
+
+            Tuple<long, long> counts;
+            if (node.IsFolder && _countCache.TryGetValue(node.FullPath, out counts))
+            {
+                node.FileCount = counts.Item1;
+                node.FolderCount = counts.Item2;
+            }
+
+            for (int i = 0; i < node.Children.Count; i++)
+            {
+                ApplyCachedCounts(node.Children[i]);
+            }
+        }
+
+        /// <summary>
+        /// Resolves the recursive file/folder counts for the folders currently visible as
+        /// tiles, one query pair at a time, updating the labels as results arrive. Results
+        /// are cached by path, and a new view cancels any in-flight enrichment.
+        /// </summary>
+        private void StartCountEnrichment()
+        {
+            if (_enrichCts != null)
+            {
+                try { _enrichCts.Cancel(); }
+                catch (ObjectDisposedException) { }
+                _enrichCts = null;
+            }
+
+            if (_fullRoot == null || _navigation.Root == null) return;
+
+            ApplyCachedCounts(_navigation.Root);
+
+            var pending = new List<FileNode>();
+            IList<FileNode> labelNodes = treemap.GetLabelNodes();
+            for (int i = 0; i < labelNodes.Count; i++)
+            {
+                FileNode node = labelNodes[i];
+                if (node.IsFolder && !node.HasCounts && !_countCache.ContainsKey(node.FullPath))
+                {
+                    pending.Add(node);
+                }
+            }
+            if (pending.Count == 0) return;
+
+            var cts = new CancellationTokenSource();
+            _enrichCts = cts;
+            _ = EnrichCountsAsync(pending, cts);
+        }
+
+        private async Task EnrichCountsAsync(List<FileNode> nodes, CancellationTokenSource cts)
+        {
+            CancellationToken token = cts.Token;
+            bool repainted = false;
+
+            try
+            {
+                for (int i = 0; i < nodes.Count; i++)
+                {
+                    if (token.IsCancellationRequested) break;
+
+                    FileNode node = nodes[i];
+                    Tuple<long, long> counts;
+                    try
+                    {
+                        counts = await _provider.GetCountsAsync(node.FullPath, token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch (Exception)
+                    {
+                        continue;
+                    }
+
+                    _countCache[node.FullPath] = counts;
+                    node.FileCount = counts.Item1;
+                    node.FolderCount = counts.Item2;
+
+                    FileNode canonical = FindByPath(_fullRoot, node.FullPath);
+                    if (canonical != null && !ReferenceEquals(canonical, node))
+                    {
+                        canonical.FileCount = counts.Item1;
+                        canonical.FolderCount = counts.Item2;
+                    }
+
+                    repainted = true;
+                    treemap.Invalidate();
+                }
+            }
+            finally
+            {
+                if (repainted)
+                {
+                    treemap.Invalidate();
+                }
+            }
         }
 
         /// <summary>
@@ -364,6 +475,13 @@ namespace VoidSniffer
 
         private void CancelPending()
         {
+            if (_enrichCts != null)
+            {
+                try { _enrichCts.Cancel(); }
+                catch (ObjectDisposedException) { }
+                _enrichCts = null;
+            }
+
             if (_cts != null)
             {
                 try { _cts.Cancel(); }

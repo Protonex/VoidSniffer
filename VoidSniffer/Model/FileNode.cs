@@ -9,6 +9,8 @@ namespace VoidSniffer.Model
         public FileNode()
         {
             Children = new List<FileNode>();
+            FileCount = -1;
+            FolderCount = -1;
         }
 
         public string Name { get; set; }
@@ -25,6 +27,18 @@ namespace VoidSniffer.Model
 
         /// <summary>Aggregate size of this node and all of its descendants.</summary>
         public long TotalSize { get; set; }
+
+        /// <summary>Recursive number of files under this folder, or -1 when unknown.</summary>
+        public long FileCount { get; set; }
+
+        /// <summary>Recursive number of folders under this folder, or -1 when unknown.</summary>
+        public long FolderCount { get; set; }
+
+        /// <summary>True when the recursive file/folder counts have been resolved.</summary>
+        public bool HasCounts
+        {
+            get { return FileCount >= 0 && FolderCount >= 0; }
+        }
 
         public int Depth { get; set; }
 

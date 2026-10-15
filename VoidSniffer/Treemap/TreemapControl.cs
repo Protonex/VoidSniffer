@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Globalization;
 using System.Windows.Forms;
 using VoidSniffer.Model;
 
@@ -201,33 +202,114 @@ namespace VoidSniffer.Treemap
             if (rect.Width < 30 || rect.Height < 12) return 0;
             if (!rect.IntersectsWith(clip)) return 0;
 
+            int left = rect.X + 2;
+            int width = rect.Width - 4;
+            if (width < 8) return 0;
+
             Color fill = TreemapColorizer.GetFill(block.Node, block.Depth);
             Color text = TreemapColorizer.GetTextColor(fill);
+            Color subText = Color.FromArgb(210, text.R, text.G, text.B);
 
-            Rectangle labelRect;
-            if (block.Node.IsFolder && rect.Height >= (int)_options.TitleHeight + 4)
+            int lineH = _labelFont.Height + 1;
+            int available = block.Node.IsFolder
+                ? Math.Min(rect.Height, (int)_options.TitleHeight)
+                : rect.Height;
+            if (available < lineH) return 0;
+
+            DrawLabelLine(g, block.Node.Name, new Rectangle(left, rect.Y + 1, width, lineH), text);
+
+            if (available >= lineH * 2)
             {
-                labelRect = new Rectangle(rect.X + 2, rect.Y + 1, rect.Width - 4, (int)_options.TitleHeight - 1);
+                DrawLabelLine(g, DescribeNode(block.Node),
+                    new Rectangle(left, rect.Y + 1 + lineH, width, lineH), subText);
             }
-            else if (!block.Node.IsFolder)
-            {
-                labelRect = new Rectangle(rect.X + 2, rect.Y + 1, rect.Width - 4, Math.Min(rect.Height - 2, 14));
-            }
-            else
-            {
-                return 0;
-            }
+
+            return 1;
+        }
+
+        private void DrawLabelLine(Graphics g, string text, Rectangle rect, Color color)
+        {
+            if (string.IsNullOrEmpty(text) || rect.Width <= 0) return;
 
             TextRenderer.DrawText(
                 g,
-                block.Node.Name,
-                _labelFont,
-                labelRect,
                 text,
+                _labelFont,
+                rect,
+                color,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine |
                 TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+        }
 
-            return 1;
+        /// <summary>Second label line: size and, for folders, recursive file/folder counts.</summary>
+        private static string DescribeNode(FileNode node)
+        {
+            string size = FormatSize(node.TotalSize);
+            if (!node.IsFolder || !node.HasCounts)
+            {
+                return size;
+            }
+
+            return string.Format("{0}  ·  {1}, {2}",
+                size,
+                FormatCount(node.FolderCount, "папка", "папки", "папок"),
+                FormatCount(node.FileCount, "файл", "файла", "файлов"));
+        }
+
+        private static string FormatCount(long value, string one, string few, string many)
+        {
+            return value.ToString("N0", CultureInfo.CurrentCulture) + " " + Plural(value, one, few, many);
+        }
+
+        private static string Plural(long value, string one, string few, string many)
+        {
+            long mod100 = value % 100;
+            long mod10 = value % 10;
+            if (mod10 == 1 && mod100 != 11) return one;
+            if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+            return many;
+        }
+
+        private static string FormatSize(long bytes)
+        {
+            if (bytes < 1024) return bytes.ToString("N0", CultureInfo.CurrentCulture) + " Б";
+
+            string[] units = { "КБ", "МБ", "ГБ", "ТБ", "ПБ" };
+            double value = bytes;
+            int unit = -1;
+            do
+            {
+                value /= 1024.0;
+                unit++;
+            }
+            while (value >= 1024.0 && unit < units.Length - 1);
+
+            string format = value >= 100 ? "0" : "0.#";
+            return value.ToString(format, CultureInfo.CurrentCulture) + " " + units[unit];
+        }
+
+        /// <summary>
+        /// Nodes whose blocks are large enough to carry a label right now. Used to request
+        /// the recursive counts only for the folders that are actually visible.
+        /// </summary>
+        public IList<FileNode> GetLabelNodes()
+        {
+            EnsureLayout();
+
+            var result = new List<FileNode>();
+            IList<TreemapBlock> blocks = _cache.Blocks;
+            for (int i = 0; i < blocks.Count; i++)
+            {
+                TreemapBlock block = blocks[i];
+                if (block.Node == null) continue;
+
+                Rectangle rect = TreemapLayoutCache.ToClientRect(block.Bounds);
+                if (rect.Width >= 30 && rect.Height >= 12)
+                {
+                    result.Add(block.Node);
+                }
+            }
+            return result;
         }
 
         private SolidBrush GetBrush(Color color)

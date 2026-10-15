@@ -155,6 +155,59 @@ namespace VoidSniffer.Services
         }
 
         /// <summary>
+        /// Returns the recursive number of files and folders under <paramref name="path"/>.
+        /// The counts are obtained as the total match count of two count-only queries
+        /// (<c>max_results = 0</c>), so no items are transferred and nothing is scanned;
+        /// the numbers come straight from the Everything index.
+        /// </summary>
+        public void GetCounts(string path, CancellationToken cancellationToken, out long fileCount, out long folderCount)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                throw new ArgumentException("path is empty", "path");
+            }
+            if (!_client.IsAvailable())
+            {
+                throw new EverythingNotAvailableException();
+            }
+
+            string subtree = BuildSubtreeQuery(path);
+
+            cancellationToken.ThrowIfCancellationRequested();
+            EverythingResult files = _client.Search(
+                subtree + " file:",
+                EverythingSearchFlags.MatchPath,
+                0,
+                0,
+                EverythingSort.None,
+                false,
+                EverythingBusyBehavior.WaitOrError);
+
+            cancellationToken.ThrowIfCancellationRequested();
+            EverythingResult folders = _client.Search(
+                subtree + " folder:",
+                EverythingSearchFlags.MatchPath,
+                0,
+                0,
+                EverythingSort.None,
+                false,
+                EverythingBusyBehavior.WaitOrError);
+
+            fileCount = files.TotalItems;
+            folderCount = folders.TotalItems;
+        }
+
+        public Task<Tuple<long, long>> GetCountsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.Run(() =>
+            {
+                long files, folders;
+                GetCounts(path, cancellationToken, out files, out folders);
+                return Tuple.Create(files, folders);
+            }, cancellationToken);
+        }
+
+        /// <summary>
         /// Builds an Everything query that selects the whole subtree of a folder.
         /// The trailing separator is significant: it prevents sibling folders whose
         /// names share a prefix from matching.
