@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -45,8 +46,39 @@ namespace VoidSniffer
             _initialPath = initialPath;
             InitializeComponent();
             WireEvents();
+            ApplyIcons();
             treemap.MaxDepth = _recursionDepth;
             UpdateDepthLabel();
+        }
+
+        /// <summary>Assigns the embedded FatCow icons to the toolbar buttons.</summary>
+        private void ApplyIcons()
+        {
+            toolStrip.ImageScalingSize = new Size(16, 16);
+
+            ApplyIcon(scanButton, "folder_search", ToolStripItemDisplayStyle.ImageAndText);
+            ApplyIcon(openButton, "open_folder", ToolStripItemDisplayStyle.ImageAndText);
+            ApplyIcon(backButton, "arrow_left", ToolStripItemDisplayStyle.Image);
+            ApplyIcon(forwardButton, "arrow_right", ToolStripItemDisplayStyle.Image);
+            ApplyIcon(upButton, "arrow_up", ToolStripItemDisplayStyle.Image);
+            ApplyIcon(homeButton, "house", ToolStripItemDisplayStyle.Image);
+            ApplyIcon(depthDownButton, "bullet_toggle_minus", ToolStripItemDisplayStyle.Image);
+            ApplyIcon(depthUpButton, "bullet_toggle_plus", ToolStripItemDisplayStyle.Image);
+            ApplyIcon(freeSpaceButton, "disk_space", ToolStripItemDisplayStyle.ImageAndText);
+
+            filterStrip.ImageScalingSize = new Size(16, 16);
+            ApplyIcon(applyFilterButton, "tick", ToolStripItemDisplayStyle.Image);
+            ApplyIcon(resetFilterButton, "cross", ToolStripItemDisplayStyle.Image);
+        }
+
+        private static void ApplyIcon(ToolStripItem item, string iconName, ToolStripItemDisplayStyle style)
+        {
+            Image image = Icons.Get(iconName);
+            if (image == null) return; // keep the text-only button
+
+            item.Image = image;
+            item.DisplayStyle = style;
+            item.ImageScaling = ToolStripItemImageScaling.SizeToFit;
         }
 
         private void WireEvents()
@@ -57,13 +89,19 @@ namespace VoidSniffer
             KeyDown += MainForm_KeyDown;
 
             scanButton.Click += ScanButton_Click;
+            scanButton.ToolTipText = "Сканировать выбранную папку (F5)";
             openButton.Click += (s, e) => OpenButton_Click();
+            openButton.ToolTipText = "Выбрать папку для сканирования";
             pathTextBox.KeyDown += PathTextBox_KeyDown;
 
             backButton.Click += (s, e) => _navigation.GoBack();
+            backButton.ToolTipText = "Назад (Alt+←)";
             forwardButton.Click += (s, e) => _navigation.GoForward();
+            forwardButton.ToolTipText = "Вперёд (Alt+→)";
             upButton.Click += (s, e) => _navigation.ZoomUp();
+            upButton.ToolTipText = "Вверх (Alt+↑)";
             homeButton.Click += (s, e) => _navigation.GoHome();
+            homeButton.ToolTipText = "К корню";
 
             depthDownButton.Click += (s, e) => AdjustDepth(-1);
             depthUpButton.Click += (s, e) => AdjustDepth(1);
@@ -74,7 +112,9 @@ namespace VoidSniffer
             freeSpaceButton.ToolTipText = "Показывать свободное место тома отдельным тайлом";
 
             applyFilterButton.Click += (s, e) => ApplyFilter();
+            applyFilterButton.ToolTipText = "Применить фильтр";
             resetFilterButton.Click += (s, e) => ResetFilter();
+            resetFilterButton.ToolTipText = "Сбросить фильтр";
             nameFilterTextBox.KeyDown += FilterTextBox_KeyDown;
             minSizeTextBox.KeyDown += FilterTextBox_KeyDown;
             maxSizeTextBox.KeyDown += FilterTextBox_KeyDown;

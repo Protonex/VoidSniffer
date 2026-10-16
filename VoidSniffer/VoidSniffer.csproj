@@ -76,6 +76,7 @@
     <Compile Include="MainForm.Designer.cs">
       <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="Icons.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">
@@ -99,6 +100,19 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Icons\arrow_left.png" />
+    <EmbeddedResource Include="Resources\Icons\arrow_right.png" />
+    <EmbeddedResource Include="Resources\Icons\arrow_up.png" />
+    <EmbeddedResource Include="Resources\Icons\bullet_toggle_minus.png" />
+    <EmbeddedResource Include="Resources\Icons\bullet_toggle_plus.png" />
+    <EmbeddedResource Include="Resources\Icons\cross.png" />
+    <EmbeddedResource Include="Resources\Icons\disk_space.png" />
+    <EmbeddedResource Include="Resources\Icons\folder_search.png" />
+    <EmbeddedResource Include="Resources\Icons\house.png" />
+    <EmbeddedResource Include="Resources\Icons\open_folder.png" />
+    <EmbeddedResource Include="Resources\Icons\tick.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
