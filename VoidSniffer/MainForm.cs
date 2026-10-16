@@ -125,7 +125,7 @@ namespace VoidSniffer
         {
             _showFreeSpace = freeSpaceButton.Checked;
             UpdateFreeSpaceTile();
-            treemap.Invalidate();
+            treemap.RefreshLayout();
         }
 
         /// <summary>
