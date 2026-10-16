@@ -32,6 +32,7 @@ namespace VoidSniffer
         private readonly string _initialPath;
         private int _recursionDepth = 4;
         private bool _showFreeSpace;
+        private bool _indexOptionsChecked;
         private readonly List<FileNode> _syntheticNodes = new List<FileNode>();
         private readonly Dictionary<string, Tuple<long, long>> _countCache =
             new Dictionary<string, Tuple<long, long>>(StringComparer.OrdinalIgnoreCase);
@@ -147,6 +148,24 @@ namespace VoidSniffer
         private void UpdateDepthLabel()
         {
             depthLabel.Text = "Глубина: " + _recursionDepth;
+        }
+
+        /// <summary>
+        /// Warns once per session when the Everything index is missing options VoidSniffer
+        /// needs (folder/file sizes, timestamps), read from Everything.ini.
+        /// </summary>
+        private void CheckIndexOptions()
+        {
+            if (_indexOptionsChecked) return;
+            _indexOptionsChecked = true;
+
+            EverythingIndexOptions options = EverythingIndexOptions.Load();
+            string warning = IndexDiagnostics.BuildWarning(options, _fullRoot);
+            if (warning != null)
+            {
+                MessageBox.Show(this, warning, "Проверьте параметры индекса Everything",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void AdjustDepth(int delta)
@@ -355,6 +374,7 @@ namespace VoidSniffer
                     normalized, loader.NodeCount, FormatSize(loader.Root.TotalSize), suffix));
 
                 StartAutoExpansion(_fullRoot);
+                CheckIndexOptions();
             }
             catch (OperationCanceledException)
             {

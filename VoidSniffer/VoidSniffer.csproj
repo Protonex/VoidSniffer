@@ -58,6 +58,8 @@
     <Compile Include="Services\AutoExpansionPolicy.cs" />
     <Compile Include="Services\DiskUsageInfo.cs" />
     <Compile Include="Services\EverythingDataProvider.cs" />    <Compile Include="Services\FileSystemTreeBuilder.cs" />
+    <Compile Include="Services\EverythingIndexOptions.cs" />
+    <Compile Include="Services\IndexDiagnostics.cs" />
     <Compile Include="Services\FilterService.cs" />
     <Compile Include="Services\NavigationController.cs" />
     <Compile Include="Services\IEverythingFileSource.cs" />
