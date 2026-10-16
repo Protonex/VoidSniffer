@@ -27,6 +27,7 @@ namespace VoidSniffer
         private CancellationTokenSource _enrichCts;
         private CancellationTokenSource _autoExpandCts;
         private string _autoExpandRootPath;
+        private int _autoExpandDepth = -1;
         private readonly string _initialPath;
         private int _recursionDepth = 4;
         private bool _showFreeSpace;
@@ -431,8 +432,8 @@ namespace VoidSniffer
         /// Expands the largest folders under <paramref name="root"/> in the background,
         /// breadth-first and depth-limited, so subfolders render recursively from the
         /// current level downwards. Bounded by a time budget and the folder size threshold.
-        /// A run already in progress for the same root is left alone; a different root
-        /// cancels it.
+        /// A run already in progress for the same root and depth is left alone; a different
+        /// root or a changed depth cancels and restarts it.
         /// </summary>
         private void StartAutoExpansion(FileNode root)
         {
@@ -442,9 +443,10 @@ namespace VoidSniffer
 
             if (_autoExpandCts != null)
             {
-                if (string.Equals(_autoExpandRootPath, path, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(_autoExpandRootPath, path, StringComparison.OrdinalIgnoreCase) &&
+                    _autoExpandDepth == _recursionDepth)
                 {
-                    return; // already expanding this subtree
+                    return; // already expanding this subtree at this depth
                 }
 
                 try { _autoExpandCts.Cancel(); }
@@ -455,6 +457,7 @@ namespace VoidSniffer
             var cts = new CancellationTokenSource();
             _autoExpandCts = cts;
             _autoExpandRootPath = path;
+            _autoExpandDepth = _recursionDepth;
             _ = AutoExpandAsync(root, cts);
         }
 
@@ -476,9 +479,12 @@ namespace VoidSniffer
 
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             int expanded = 0;
+            int visited = 0;
             long lastRefreshMs = 0;
+            const int visitBudget = 20000;
 
-            while (pending.Count > 0 && expanded < budget && stopwatch.ElapsedMilliseconds < 12000)
+            while (pending.Count > 0 && expanded < budget && visited < visitBudget &&
+                   stopwatch.ElapsedMilliseconds < 12000)
             {
                 if (token.IsCancellationRequested || !ReferenceEquals(_autoExpandCts, cts)) break;
 
@@ -487,35 +493,39 @@ namespace VoidSniffer
 
                 FileNode folder = pending[index];
                 pending.RemoveAt(index);
+                visited++;
 
-                if (_loader.IsExpanded(folder)) continue;
+                if (!_loader.IsExpanded(folder))
+                {
+                    try
+                    {
+                        await _loader.ExpandAsync(folder, token);
+                        expanded++;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch (Exception)
+                    {
+                        // Ignore this folder but keep descending through the rest.
+                    }
 
-                try
-                {
-                    if (!await _loader.ExpandAsync(folder, token)) continue;
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-                catch (Exception)
-                {
-                    continue;
+                    // The cached layout must be discarded so the new nested blocks show
+                    // up; throttle the full rebuild so a long run stays responsive.
+                    if (stopwatch.ElapsedMilliseconds - lastRefreshMs >= 200)
+                    {
+                        lastRefreshMs = stopwatch.ElapsedMilliseconds;
+                        RefreshTreemapAfterExpansion();
+                    }
                 }
 
-                expanded++;
+                // Descend even through folders that were already expanded, otherwise a
+                // depth increase would never reach the deeper frontier.
                 for (int i = 0; i < folder.Children.Count; i++)
                 {
                     FileNode child = folder.Children[i];
                     if (AutoExpansionPolicy.IsEligible(child, threshold, maxDepth)) pending.Add(child);
-                }
-
-                // The cached layout must be discarded so the new nested blocks show up;
-                // throttle the full rebuild so a long expansion run stays responsive.
-                if (stopwatch.ElapsedMilliseconds - lastRefreshMs >= 200)
-                {
-                    lastRefreshMs = stopwatch.ElapsedMilliseconds;
-                    RefreshTreemapAfterExpansion();
                 }
             }
 
@@ -525,6 +535,7 @@ namespace VoidSniffer
             {
                 _autoExpandCts = null;
                 _autoExpandRootPath = null;
+                _autoExpandDepth = -1;
             }
         }
 
