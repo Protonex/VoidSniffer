@@ -47,6 +47,9 @@ namespace VoidSniffer.Model
             get { return FileCount >= 0 && FolderCount >= 0; }
         }
 
+        /// <summary>True for nodes the view adds itself (e.g. the free-space tile).</summary>
+        public bool IsSynthetic { get; set; }
+
         /// <summary>
         /// Allocated size (space occupied on disk) of this node, or -1 when unknown.
         /// Exact for files; an estimate based on the volume cluster size for folders.

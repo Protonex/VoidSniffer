@@ -52,5 +52,23 @@ namespace VoidSniffer.Tests
         {
             Assert.Equal(expected, DiskUsageInfo.GetVolumeRoot(path));
         }
+
+        [Fact]
+        public void TryGetFreeSpace_ForSystemDrive_ReturnsPositive()
+        {
+            long free;
+            bool ok = DiskUsageInfo.TryGetFreeSpace(@"C:\", out free);
+            if (ok)
+            {
+                Assert.True(free > 0);
+            }
+        }
+
+        [Fact]
+        public void TryGetFreeSpace_ForPathWithoutVolume_ReturnsFalse()
+        {
+            long free;
+            Assert.False(DiskUsageInfo.TryGetFreeSpace(@"relative\path", out free));
+        }
     }
 }

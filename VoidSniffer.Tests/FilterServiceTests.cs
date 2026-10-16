@@ -74,6 +74,28 @@ namespace VoidSniffer.Tests
             Assert.Equal(6, FilterService.CountNodes(Tree()));
         }
 
+        [Fact]
+        public void Apply_DropsSyntheticNodes()
+        {
+            FileNode root = Tree();
+            var synthetic = new FileNode
+            {
+                Name = "Свободно",
+                FullPath = "root\\<free>",
+                IsFolder = false,
+                IsSynthetic = true,
+                OwnSize = 12345,
+                TotalSize = 12345
+            };
+            synthetic.Parent = root;
+            root.Children.Add(synthetic);
+
+            var criteria = new FilterCriteria { MinSize = 1000 };
+            FileNode result = _service.Apply(root, criteria);
+
+            Assert.DoesNotContain(result.Children, c => c.IsSynthetic);
+        }
+
         private static FileNode Find(FileNode node, string name)
         {
             if (node == null) return null;

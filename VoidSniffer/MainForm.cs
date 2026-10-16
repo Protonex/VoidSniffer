@@ -27,13 +27,25 @@ namespace VoidSniffer
         private CancellationTokenSource _enrichCts;
         private CancellationTokenSource _autoExpandCts;
         private string _autoExpandRootPath;
+        private readonly string _initialPath;
+        private int _recursionDepth = 4;
+        private bool _showFreeSpace;
+        private readonly List<FileNode> _syntheticNodes = new List<FileNode>();
         private readonly Dictionary<string, Tuple<long, long>> _countCache =
             new Dictionary<string, Tuple<long, long>>(StringComparer.OrdinalIgnoreCase);
 
         public MainForm()
+            : this(null)
         {
+        }
+
+        public MainForm(string initialPath)
+        {
+            _initialPath = initialPath;
             InitializeComponent();
             WireEvents();
+            treemap.MaxDepth = _recursionDepth;
+            UpdateDepthLabel();
         }
 
         private void WireEvents()
@@ -44,12 +56,17 @@ namespace VoidSniffer
             KeyDown += MainForm_KeyDown;
 
             scanButton.Click += ScanButton_Click;
+            openButton.Click += (s, e) => OpenButton_Click();
             pathTextBox.KeyDown += PathTextBox_KeyDown;
 
             backButton.Click += (s, e) => _navigation.GoBack();
             forwardButton.Click += (s, e) => _navigation.GoForward();
             upButton.Click += (s, e) => _navigation.ZoomUp();
             homeButton.Click += (s, e) => _navigation.GoHome();
+
+            depthDownButton.Click += (s, e) => AdjustDepth(-1);
+            depthUpButton.Click += (s, e) => AdjustDepth(1);
+            freeSpaceButton.Click += (s, e) => ToggleFreeSpace();
 
             applyFilterButton.Click += (s, e) => ApplyFilter();
             resetFilterButton.Click += (s, e) => ResetFilter();
@@ -64,6 +81,85 @@ namespace VoidSniffer
             treemap.HoverChanged += Treemap_HoverChanged;
             treemap.SelectionChanged += Treemap_SelectionChanged;
             treemap.ContextMenuRequested += Treemap_ContextMenuRequested;
+        }
+
+        private void OpenButton_Click()
+        {
+            using (var dialog = new FolderBrowserDialog())
+            {
+                dialog.Description = "Выберите папку для сканирования";
+                dialog.ShowNewFolderButton = false;
+                dialog.SelectedPath = Directory.Exists(pathTextBox.Text) ? pathTextBox.Text : "C:\\";
+
+                if (dialog.ShowDialog(this) == DialogResult.OK)
+                {
+                    pathTextBox.Text = dialog.SelectedPath;
+                    _ = ScanAsync();
+                }
+            }
+        }
+
+        private void UpdateDepthLabel()
+        {
+            depthLabel.Text = "Глубина: " + _recursionDepth;
+        }
+
+        private void AdjustDepth(int delta)
+        {
+            int next = _recursionDepth + delta;
+            if (next < 1) next = 1;
+            if (next > 8) next = 8;
+            if (next == _recursionDepth) return;
+
+            _recursionDepth = next;
+            UpdateDepthLabel();
+            treemap.MaxDepth = _recursionDepth;
+
+            FileNode focus = _navigation.Focus;
+            FileNode canonical = focus != null && _fullRoot != null ? FindByPath(_fullRoot, focus.FullPath) : null;
+            if (canonical != null) StartAutoExpansion(canonical);
+            RefreshTreemapAfterExpansion();
+        }
+
+        private void ToggleFreeSpace()
+        {
+            _showFreeSpace = freeSpaceButton.Checked;
+            UpdateFreeSpaceTile();
+            treemap.Invalidate();
+        }
+
+        /// <summary>
+        /// Adds or removes a synthetic "free space" tile for the current view's volume.
+        /// The tile is attached to the focused node in the displayed view.
+        /// </summary>
+        private void UpdateFreeSpaceTile()
+        {
+            for (int i = 0; i < _syntheticNodes.Count; i++)
+            {
+                FileNode node = _syntheticNodes[i];
+                if (node.Parent != null) node.Parent.Children.Remove(node);
+            }
+            _syntheticNodes.Clear();
+
+            FileNode focus = _navigation.Focus;
+            if (!_showFreeSpace || focus == null || !focus.IsFolder) return;
+
+            long free;
+            if (!DiskUsageInfo.TryGetFreeSpace(focus.FullPath, out free) || free <= 0) return;
+
+            var freeNode = new FileNode
+            {
+                Name = "Свободно",
+                FullPath = focus.FullPath + "\\<свободно>",
+                IsFolder = false,
+                IsSynthetic = true,
+                OwnSize = free,
+                TotalSize = free,
+                Parent = focus,
+                Depth = focus.Depth + 1
+            };
+            focus.Children.Add(freeNode);
+            _syntheticNodes.Add(freeNode);
         }
 
         private void Treemap_ContextMenuRequested(object sender, TreemapContextMenuEventArgs e)
@@ -89,6 +185,12 @@ namespace VoidSniffer
             }
 
             SetStatus("Everything " + _provider.GetVersion().ToString(3) + " — готов. Укажите путь и нажмите «Сканировать».");
+
+            if (!string.IsNullOrWhiteSpace(_initialPath))
+            {
+                pathTextBox.Text = _initialPath;
+                _ = ScanAsync();
+            }
         }
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
@@ -316,6 +418,7 @@ namespace VoidSniffer
         {
             treemap.SetContent(_navigation.Focus);
             UpdateNavigation();
+            UpdateFreeSpaceTile();
             EnsureFocusExpanded(_navigation.Focus);
             StartCountEnrichment();
         }
@@ -357,7 +460,7 @@ namespace VoidSniffer
             long threshold = AutoExpansionPolicy.SizeThreshold(root.TotalSize);
 
             // Depth limit is relative to the current level, so drilling in keeps nesting.
-            int maxDepth = root.Depth + AutoExpansionPolicy.DefaultMaxDepth;
+            int maxDepth = root.Depth + _recursionDepth;
             const int budget = 300;
 
             var pending = new List<FileNode>();
@@ -602,7 +705,7 @@ namespace VoidSniffer
 
         private void Treemap_BlockActivated(object sender, TreemapNodeEventArgs e)
         {
-            if (e.Node == null) return;
+            if (e.Node == null || e.Node.IsSynthetic) return;
             if (e.Node.IsFolder)
             {
                 _navigation.NavigateTo(e.Node);

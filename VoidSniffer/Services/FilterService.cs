@@ -58,6 +58,10 @@ namespace VoidSniffer.Services
 
         private static FileNode Build(FileNode node, FilterCriteria criteria, int depth)
         {
+            // Synthetic nodes (e.g. the free-space tile) are managed by the view, not the
+            // filter, so they are dropped here and re-added after the view is rebuilt.
+            if (node.IsSynthetic) return null;
+
             if (node.IsFolder)
             {
                 bool hasNamePredicate = !string.IsNullOrWhiteSpace(criteria.NameQuery);
@@ -133,7 +137,8 @@ namespace VoidSniffer.Services
                 ModifiedTime = node.ModifiedTime,
                 OwnSize = node.OwnSize,
                 TotalSize = node.TotalSize,
-                Depth = depth
+                Depth = depth,
+                IsSynthetic = node.IsSynthetic
             };
             for (int i = 0; i < node.Children.Count; i++)
             {

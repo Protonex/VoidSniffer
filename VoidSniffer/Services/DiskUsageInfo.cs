@@ -78,6 +78,35 @@ namespace VoidSniffer.Services
             return size;
         }
 
+        /// <summary>Free space (bytes) available on the volume containing <paramref name="path"/>.</summary>
+        public static bool TryGetFreeSpace(string path, out long freeBytes)
+        {
+            freeBytes = 0;
+            string root = GetVolumeRoot(path);
+            if (root == null) return false;
+
+            try
+            {
+                var drive = new DriveInfo(root);
+                if (drive.IsReady)
+                {
+                    freeBytes = drive.AvailableFreeSpace;
+                    return true;
+                }
+            }
+            catch (ArgumentException)
+            {
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            return false;
+        }
+
         /// <summary>Volume root ("C:\") of a path, or null when the path has no drive.</summary>
         public static string GetVolumeRoot(string path)
         {

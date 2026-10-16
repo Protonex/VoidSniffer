@@ -9,11 +9,17 @@
         private System.Windows.Forms.ToolStripLabel pathLabel;
         private System.Windows.Forms.ToolStripTextBox pathTextBox;
         private System.Windows.Forms.ToolStripButton scanButton;
+        private System.Windows.Forms.ToolStripButton openButton;
         private System.Windows.Forms.ToolStripSeparator separator1;
         private System.Windows.Forms.ToolStripButton backButton;
         private System.Windows.Forms.ToolStripButton forwardButton;
         private System.Windows.Forms.ToolStripButton upButton;
         private System.Windows.Forms.ToolStripButton homeButton;
+        private System.Windows.Forms.ToolStripSeparator separator2;
+        private System.Windows.Forms.ToolStripButton depthDownButton;
+        private System.Windows.Forms.ToolStripLabel depthLabel;
+        private System.Windows.Forms.ToolStripButton depthUpButton;
+        private System.Windows.Forms.ToolStripButton freeSpaceButton;
         private System.Windows.Forms.ToolStrip filterStrip;
         private System.Windows.Forms.ToolStripLabel filterLabel;
         private System.Windows.Forms.ToolStripTextBox nameFilterTextBox;
@@ -47,11 +53,17 @@
             this.pathLabel = new System.Windows.Forms.ToolStripLabel();
             this.pathTextBox = new System.Windows.Forms.ToolStripTextBox();
             this.scanButton = new System.Windows.Forms.ToolStripButton();
+            this.openButton = new System.Windows.Forms.ToolStripButton();
             this.separator1 = new System.Windows.Forms.ToolStripSeparator();
             this.backButton = new System.Windows.Forms.ToolStripButton();
             this.forwardButton = new System.Windows.Forms.ToolStripButton();
             this.upButton = new System.Windows.Forms.ToolStripButton();
             this.homeButton = new System.Windows.Forms.ToolStripButton();
+            this.separator2 = new System.Windows.Forms.ToolStripSeparator();
+            this.depthDownButton = new System.Windows.Forms.ToolStripButton();
+            this.depthLabel = new System.Windows.Forms.ToolStripLabel();
+            this.depthUpButton = new System.Windows.Forms.ToolStripButton();
+            this.freeSpaceButton = new System.Windows.Forms.ToolStripButton();
             this.filterStrip = new System.Windows.Forms.ToolStrip();
             this.filterLabel = new System.Windows.Forms.ToolStripLabel();
             this.nameFilterTextBox = new System.Windows.Forms.ToolStripTextBox();
@@ -77,11 +89,17 @@
                 this.pathLabel,
                 this.pathTextBox,
                 this.scanButton,
+                this.openButton,
                 this.separator1,
                 this.backButton,
                 this.forwardButton,
                 this.upButton,
-                this.homeButton});
+                this.homeButton,
+                this.separator2,
+                this.depthDownButton,
+                this.depthLabel,
+                this.depthUpButton,
+                this.freeSpaceButton});
             this.toolStrip.Location = new System.Drawing.Point(0, 0);
             this.toolStrip.Name = "toolStrip";
             this.toolStrip.Size = new System.Drawing.Size(960, 27);
@@ -142,6 +160,46 @@
             this.homeButton.Name = "homeButton";
             this.homeButton.Size = new System.Drawing.Size(70, 24);
             this.homeButton.Text = "К корню";
+            // 
+            // openButton
+            // 
+            this.openButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.openButton.Name = "openButton";
+            this.openButton.Size = new System.Drawing.Size(70, 24);
+            this.openButton.Text = "Открыть…";
+            // 
+            // separator2
+            // 
+            this.separator2.Name = "separator2";
+            this.separator2.Size = new System.Drawing.Size(6, 27);
+            // 
+            // depthDownButton
+            // 
+            this.depthDownButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.depthDownButton.Name = "depthDownButton";
+            this.depthDownButton.Size = new System.Drawing.Size(24, 24);
+            this.depthDownButton.Text = "−";
+            // 
+            // depthLabel
+            // 
+            this.depthLabel.Name = "depthLabel";
+            this.depthLabel.Size = new System.Drawing.Size(110, 24);
+            this.depthLabel.Text = "Глубина: 4";
+            // 
+            // depthUpButton
+            // 
+            this.depthUpButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.depthUpButton.Name = "depthUpButton";
+            this.depthUpButton.Size = new System.Drawing.Size(24, 24);
+            this.depthUpButton.Text = "+";
+            // 
+            // freeSpaceButton
+            // 
+            this.freeSpaceButton.CheckOnClick = true;
+            this.freeSpaceButton.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.freeSpaceButton.Name = "freeSpaceButton";
+            this.freeSpaceButton.Size = new System.Drawing.Size(84, 24);
+            this.freeSpaceButton.Text = "Свободно";
             // 
             // filterStrip
             // 

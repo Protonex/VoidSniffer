@@ -143,6 +143,22 @@ namespace VoidSniffer.Treemap
             get { return _cache.RebuildCount; }
         }
 
+        /// <summary>Maximum rendering depth (nesting levels) of the treemap.</summary>
+        public int MaxDepth
+        {
+            get { return (int)_options.MaxDepth; }
+            set
+            {
+                int depth = value;
+                if (depth < 1) depth = 1;
+                if (depth > 16) depth = 16;
+                if ((int)_options.MaxDepth == depth) return;
+
+                _options.MaxDepth = depth;
+                RefreshLayout();
+            }
+        }
+
         /// <summary>Sets the node to render and clears transient hover/selection state.</summary>
         public void SetContent(FileNode node)
         {

@@ -49,6 +49,11 @@ namespace VoidSniffer.Treemap
         /// </summary>
         public static Color GetFileFill(FileNode node)
         {
+            if (node.IsSynthetic)
+            {
+                return Color.FromArgb(178, 205, 165);
+            }
+
             string extension = GetExtension(node);
             switch (extension)
             {
