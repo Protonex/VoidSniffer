@@ -66,7 +66,11 @@ namespace VoidSniffer
 
             depthDownButton.Click += (s, e) => AdjustDepth(-1);
             depthUpButton.Click += (s, e) => AdjustDepth(1);
+            depthDownButton.ToolTipText = "Меньше уровней вложенности";
+            depthUpButton.ToolTipText = "Больше уровней вложенности";
+            depthLabel.ToolTipText = "Уровней вложенности от текущей папки";
             freeSpaceButton.Click += (s, e) => ToggleFreeSpace();
+            freeSpaceButton.ToolTipText = "Показывать свободное место тома отдельным тайлом";
 
             applyFilterButton.Click += (s, e) => ApplyFilter();
             resetFilterButton.Click += (s, e) => ResetFilter();
