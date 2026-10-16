@@ -6,6 +6,15 @@
     /// </summary>
     public sealed class FileSystemItem
     {
+        public FileSystemItem()
+        {
+            // -1 means "not reported by the source" (the classic IPC path does not provide
+            // these; only the Everything 1.5 index does).
+            OnDiskSize = -1;
+            FileCount = -1;
+            FolderCount = -1;
+        }
+
         public string Name { get; set; }
 
         /// <summary>Directory containing the item, without a trailing separator.</summary>
@@ -27,5 +36,14 @@
 
         /// <summary>Last access time reported by the index, when available.</summary>
         public System.DateTime? AccessedTime { get; set; }
+
+        /// <summary>Exact allocated size reported by the Everything 1.5 index, or -1 when unknown.</summary>
+        public long OnDiskSize { get; set; }
+
+        /// <summary>Recursive number of files reported by the Everything 1.5 index, or -1 when unknown.</summary>
+        public long FileCount { get; set; }
+
+        /// <summary>Recursive number of folders reported by the Everything 1.5 index, or -1 when unknown.</summary>
+        public long FolderCount { get; set; }
     }
 }

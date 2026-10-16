@@ -169,6 +169,12 @@ namespace VoidSniffer.Services
                     node.OnDiskSize = DiskUsage.AllocatedFileSize(size, cluster);
                 }
 
+                // The Everything 1.5 index reports the exact on-disk size and recursive
+                // counts directly; prefer them over estimates.
+                if (item.OnDiskSize >= 0) node.OnDiskSize = item.OnDiskSize;
+                if (item.FileCount >= 0) node.FileCount = item.FileCount;
+                if (item.FolderCount >= 0) node.FolderCount = item.FolderCount;
+
                 folder.Children.Add(node);
                 added++;
             }

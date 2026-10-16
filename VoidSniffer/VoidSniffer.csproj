@@ -48,6 +48,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Everything\EverythingClient.cs" />
+    <Compile Include="Everything\Everything3Client.cs" />
     <Compile Include="Everything\EverythingIpc.cs" />
     <Compile Include="Everything\EverythingReceiverWindow.cs" />
     <Compile Include="Everything\EverythingResult.cs" />

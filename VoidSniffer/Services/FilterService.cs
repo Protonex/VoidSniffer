@@ -98,9 +98,14 @@ namespace VoidSniffer.Services
                     Name = node.Name,
                     FullPath = node.FullPath,
                     IsFolder = true,
+                    CreatedTime = node.CreatedTime,
                     ModifiedTime = node.ModifiedTime,
+                    LastAccessTime = node.LastAccessTime,
                     OwnSize = 0,
                     TotalSize = total,
+                    FileCount = node.FileCount,
+                    FolderCount = node.FolderCount,
+                    OnDiskSize = node.OnDiskSize,
                     Depth = depth
                 };
                 for (int i = 0; i < keptChildren.Count; i++)
@@ -120,9 +125,12 @@ namespace VoidSniffer.Services
                 Name = node.Name,
                 FullPath = node.FullPath,
                 IsFolder = false,
+                CreatedTime = node.CreatedTime,
                 ModifiedTime = node.ModifiedTime,
+                LastAccessTime = node.LastAccessTime,
                 OwnSize = node.OwnSize,
                 TotalSize = node.OwnSize,
+                OnDiskSize = node.OnDiskSize,
                 Depth = depth
             };
         }
@@ -134,9 +142,14 @@ namespace VoidSniffer.Services
                 Name = node.Name,
                 FullPath = node.FullPath,
                 IsFolder = node.IsFolder,
+                CreatedTime = node.CreatedTime,
                 ModifiedTime = node.ModifiedTime,
+                LastAccessTime = node.LastAccessTime,
                 OwnSize = node.OwnSize,
                 TotalSize = node.TotalSize,
+                FileCount = node.FileCount,
+                FolderCount = node.FolderCount,
+                OnDiskSize = node.OnDiskSize,
                 Depth = depth,
                 IsSynthetic = node.IsSynthetic
             };

@@ -229,7 +229,8 @@ namespace VoidSniffer
                 return;
             }
 
-            SetStatus("Everything " + _provider.GetVersion().ToString(3) + " — готов. Укажите путь и нажмите «Сканировать».");
+            string transport = _provider.IsSdk3Available() ? " (SDK3)" : string.Empty;
+            SetStatus("Everything " + _provider.GetVersion().ToString(3) + transport + " — готов. Укажите путь и нажмите «Сканировать».");
 
             if (!string.IsNullOrWhiteSpace(_initialPath))
             {
