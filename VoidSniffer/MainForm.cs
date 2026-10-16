@@ -234,12 +234,24 @@ namespace VoidSniffer
 
         private void PathTextBox_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Enter)
+            if (e.KeyCode != Keys.Enter) return;
+
+            e.SuppressKeyPress = true;
+            e.Handled = true;
+
+            // Navigate to a folder that is already loaded, otherwise scan it.
+            string path = (pathTextBox.Text ?? string.Empty).Trim();
+            if (_fullRoot != null && path.Length > 0)
             {
-                e.SuppressKeyPress = true;
-                e.Handled = true;
-                _ = ScanAsync();
+                FileNode target = FindByPath(_fullRoot, PathUtil.Normalize(path));
+                if (target != null && target.IsFolder && !ReferenceEquals(target, _navigation.Focus))
+                {
+                    _navigation.NavigateTo(target);
+                    return;
+                }
             }
+
+            _ = ScanAsync();
         }
 
         private void FilterTextBox_KeyDown(object sender, KeyEventArgs e)
@@ -421,10 +433,18 @@ namespace VoidSniffer
 
         private void Navigation_FocusChanged(object sender, EventArgs e)
         {
-            treemap.SetContent(_navigation.Focus);
+            FileNode focus = _navigation.Focus;
+            treemap.SetContent(focus);
             UpdateNavigation();
+
+            // The address bar follows navigation: it shows the folder being viewed.
+            if (focus != null && !focus.IsSynthetic && !string.IsNullOrEmpty(focus.FullPath))
+            {
+                pathTextBox.Text = focus.FullPath;
+            }
+
             UpdateFreeSpaceTile();
-            EnsureFocusExpanded(_navigation.Focus);
+            EnsureFocusExpanded(focus);
             StartCountEnrichment();
         }
 
