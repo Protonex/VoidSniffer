@@ -117,6 +117,29 @@ VoidSniffer.SystemTests\bin\Debug\VoidSniffer.SystemTests.exe "C:\"
 
 ---
 
+## Публикация релиза
+
+Репозиторий: **https://github.com/Protonex/VoidSniffer**
+
+Первый пуш (если remote ещё не настроен):
+```powershell
+git branch -M main
+git remote add origin https://github.com/Protonex/VoidSniffer.git
+git push -u origin main
+```
+
+Локальная публикация релиза (нужен авторизованный [GitHub CLI](https://cli.github.com/), `gh auth login`):
+```powershell
+.\tools\release.ps1 -Version v1.0.0
+```
+Скрипт соберёт `Release`, упакует `dist\VoidSniffer-v1.0.0-win-anycpu.zip`, создаст и запушит тег, затем опубликует GitHub Release с этим архивом. Только упаковка без публикации — `.\tools\pack.ps1 -Version v1.0.0`.
+
+Автоматически: при пуше тега `v*` workflow `.github/workflows/release.yml` собирает проект, упаковывает архив и публикует релиз через встроенный `GITHUB_TOKEN`.
+
+> Скрипты не содержат секретов: локально используется авторизация `gh`, в CI — `GITHUB_TOKEN` с минимальным правом `contents: write`. Не добавляйте в репозиторий токены, сертификаты подписи и пароли.
+
+---
+
 ## Запуск
 
 ```powershell
