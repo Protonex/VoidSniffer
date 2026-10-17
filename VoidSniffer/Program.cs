@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Windows.Forms;
+using VoidSniffer.Services;
 
 namespace VoidSniffer
 {
@@ -14,11 +15,14 @@ namespace VoidSniffer
         [STAThread]
         static void Main(string[] args)
         {
-            Localization.Initialize(ParseLanguage(args));
+            AppSettings settings = AppSettings.Load();
+
+            // CLI overrides the config; a null value lets Initialize use the env var/culture.
+            Localization.Initialize(ParseLanguage(args) ?? settings.Language);
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new MainForm(ParseScanPath(args)));
+            Application.Run(new MainForm(ParseScanPath(args), settings));
         }
 
         /// <summary>Path to scan from the command line, or null.</summary>

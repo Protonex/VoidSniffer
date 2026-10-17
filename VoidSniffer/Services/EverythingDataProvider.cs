@@ -45,9 +45,11 @@ namespace VoidSniffer.Services
             _sdk3Checked = true;
 
             // The Everything 1.5 named-pipe transport proved unreliable across sessions, so
-            // it is opt-in: set VOIDSNIFFER_USE_SDK3=1 to prefer it. The classic WM_COPYDATA
-            // IPC stays the default and the fallback.
-            if (!string.Equals(Environment.GetEnvironmentVariable("VOIDSNIFFER_USE_SDK3"), "1", StringComparison.Ordinal))
+            // it is opt-in: enable it in VoidSniffer.ini (sdk3=1) or with
+            // VOIDSNIFFER_USE_SDK3=1. The classic WM_COPYDATA IPC stays the default and the
+            // fallback.
+            bool envEnabled = string.Equals(Environment.GetEnvironmentVariable("VOIDSNIFFER_USE_SDK3"), "1", StringComparison.Ordinal);
+            if (!EnableSdk3 && !envEnabled)
             {
                 _sdk3Available = false;
                 return;
@@ -65,6 +67,9 @@ namespace VoidSniffer.Services
 
         /// <summary>Upper bound on the number of entries fetched for one query.</summary>
         public uint MaxResults { get; set; }
+
+        /// <summary>Use the Everything 1.5 pipe (SDK3) when available (opt-in).</summary>
+        public bool EnableSdk3 { get; set; }
 
         /// <summary>Total number of matches Everything reported for the last query.</summary>
         public uint LastTotalItems { get; private set; }

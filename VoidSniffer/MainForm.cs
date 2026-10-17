@@ -36,20 +36,56 @@ namespace VoidSniffer
         private readonly List<FileNode> _syntheticNodes = new List<FileNode>();
         private readonly Dictionary<string, Tuple<long, long>> _countCache =
             new Dictionary<string, Tuple<long, long>>(StringComparer.OrdinalIgnoreCase);
+        private readonly AppSettings _settings;
 
         public MainForm()
-            : this(null)
+            : this(null, null)
         {
         }
 
         public MainForm(string initialPath)
+            : this(initialPath, null)
         {
+        }
+
+        public MainForm(string initialPath, AppSettings settings)
+        {
+            _settings = settings ?? AppSettings.Load();
             _initialPath = initialPath;
             InitializeComponent();
             WireEvents();
             ApplyIcons();
             ApplyLocalization();
+            ApplySettings();
+        }
+
+        /// <summary>Applies persisted settings (depth, free-space tile, limits, window).</summary>
+        private void ApplySettings()
+        {
+            _recursionDepth = Math.Min(8, Math.Max(1, _settings.RecursionDepth));
+            _showFreeSpace = _settings.ShowFreeSpace;
+            freeSpaceButton.Checked = _showFreeSpace;
+
+            _provider.MaxResults = (uint)Math.Max(1000, _settings.MaxResults);
+            _provider.EnableSdk3 = _settings.Sdk3;
+
             treemap.MaxDepth = _recursionDepth;
+            UpdateDepthLabel();
+
+            if (!string.IsNullOrWhiteSpace(_settings.LastPath) && Directory.Exists(_settings.LastPath))
+            {
+                pathTextBox.Text = _settings.LastPath;
+            }
+
+            if (_settings.WindowWidth >= 400 && _settings.WindowHeight >= 300)
+            {
+                Width = _settings.WindowWidth;
+                Height = _settings.WindowHeight;
+            }
+            if (_settings.WindowMaximized)
+            {
+                WindowState = FormWindowState.Maximized;
+            }
         }
 
         /// <summary>Assigns the embedded FatCow icons to the toolbar buttons.</summary>
@@ -339,6 +375,25 @@ namespace VoidSniffer
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
             CancelPending();
+            SaveSettings();
+        }
+
+        private void SaveSettings()
+        {
+            _settings.Language = Localization.Code;
+            _settings.RecursionDepth = _recursionDepth;
+            _settings.ShowFreeSpace = _showFreeSpace;
+            _settings.WindowMaximized = WindowState == FormWindowState.Maximized;
+            if (WindowState == FormWindowState.Normal)
+            {
+                _settings.WindowWidth = Width;
+                _settings.WindowHeight = Height;
+            }
+            if (_fullRoot != null && !string.IsNullOrEmpty(_fullRoot.FullPath))
+            {
+                _settings.LastPath = _fullRoot.FullPath;
+            }
+            _settings.Save();
         }
 
         private void MainForm_KeyDown(object sender, KeyEventArgs e)
@@ -601,6 +656,7 @@ namespace VoidSniffer
         private void StartAutoExpansion(FileNode root)
         {
             if (root == null || _loader == null) return;
+            if (!_settings.AutoExpand) return;
 
             string path = root.FullPath;
 
@@ -631,7 +687,8 @@ namespace VoidSniffer
 
             // Depth limit is relative to the current level, so drilling in keeps nesting.
             int maxDepth = root.Depth + _recursionDepth;
-            const int budget = 300;
+            int budget = Math.Max(10, _settings.AutoExpandBudget);
+            long timeLimitMs = Math.Max(1, _settings.AutoExpandSeconds) * 1000L;
 
             var pending = new List<FileNode>();
             for (int i = 0; i < root.Children.Count; i++)
@@ -647,7 +704,7 @@ namespace VoidSniffer
             const int visitBudget = 20000;
 
             while (pending.Count > 0 && expanded < budget && visited < visitBudget &&
-                   stopwatch.ElapsedMilliseconds < 12000)
+                   stopwatch.ElapsedMilliseconds < timeLimitMs)
             {
                 if (token.IsCancellationRequested || !ReferenceEquals(_autoExpandCts, cts)) break;
 

@@ -163,22 +163,7 @@ namespace VoidSniffer
         /// <summary>Parses a language pack into a key/value dictionary (unit tested).</summary>
         public static Dictionary<string, string> Parse(string text)
         {
-            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            if (string.IsNullOrEmpty(text)) return map;
-
-            foreach (string rawLine in text.Split('\n'))
-            {
-                string line = rawLine.Trim();
-                if (line.Length == 0 || line[0] == ';' || line[0] == '#' || line[0] == '[') continue;
-
-                int eq = line.IndexOf('=');
-                if (eq <= 0) continue;
-
-                string key = line.Substring(0, eq).Trim();
-                string value = Unescape(line.Substring(eq + 1).Trim());
-                map[key] = value;
-            }
-            return map;
+            return Services.IniFile.Parse(text);
         }
 
         private static string Get(string key)
@@ -283,12 +268,6 @@ namespace VoidSniffer
             }
             if (codes.Count == 0) codes.Add(DefaultCode);
             return codes;
-        }
-
-        private static string Unescape(string value)
-        {
-            if (value.IndexOf('\\') < 0) return value;
-            return value.Replace("\\n", "\n").Replace("\\t", "\t").Replace("\\\\", "\\");
         }
     }
 }
