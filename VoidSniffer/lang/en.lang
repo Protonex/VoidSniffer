@@ -1,0 +1,85 @@
+; VoidSniffer language pack (English)
+; Encoding: UTF-8. Lines like key=value; use \n for a newline.
+language.code=en
+language.name=English
+language.plural=en
+
+app.title=VoidSniffer
+
+path.label=Path:
+scan.text=Scan
+open.text=Open…
+back.text=Back
+forward.text=Forward
+up.text=Up
+home.text=Root
+depth.down.text=−
+depth.up.text=+
+depth.label=Depth: {0}
+free.text=Free
+filter.label=Filter:
+filter.min=Min, MB:
+filter.max=Max, MB:
+filter.apply=Apply
+filter.reset=Reset
+
+tip.scan=Scan the selected folder (F5)
+tip.open=Choose a folder to scan
+tip.back=Back (Alt+←)
+tip.forward=Forward (Alt+→)
+tip.up=Up (Alt+↑)
+tip.home=Root
+tip.depth.down=Fewer nesting levels
+tip.depth.up=More nesting levels
+tip.depth.label=Nesting levels from the current folder
+tip.free=Show the volume's free space as a separate tile
+tip.apply=Apply filter
+tip.reset=Reset filter
+tip.language=Interface language
+
+status.ready=Everything {0}{1} — ready. Enter a path and click "Scan".
+status.querying=Querying the Everything index…
+status.needPath=Enter a folder path.
+status.done={0} — nodes: {1:N0}, size: {2}{3}
+status.truncated= (folders truncated: {0:N0})
+status.canceled=Operation cancelled.
+status.everythingUnavailable=Everything is not available.
+status.everythingNotRunning=Everything is not running — start it and try again.
+status.error=Error: {0}
+status.hover={0}: {1}   |   {2}{3}
+
+kind.folder=Folder
+kind.file=File
+
+dialog.invalidPath.title=Invalid path
+dialog.invalidPath.text=Folder not found:\n{0}
+dialog.everything.title=Everything is not available
+dialog.everythingNotFound.text=Could not find the Everything IPC window.\nStart Everything (voidtools) and try again.
+dialog.error.title=Error
+dialog.openFolder.description=Choose a folder to scan
+
+filter.note=  |  filter: {0}
+filter.none=none
+filter.name=name~'{0}'
+filter.minPart=≥{0}
+filter.maxPart=≤{0}
+
+treemap.freeSpace=Free
+treemap.onDisk=on disk
+count.folders.one=folder
+count.folders.few=folders
+count.folders.many=folders
+count.files.one=file
+count.files.few=files
+count.files.many=files
+tooltip.created=Created
+tooltip.modified=Modified
+tooltip.accessed=Accessed
+size.units=B,KB,MB,GB,TB,PB
+
+index.warning.title=Check the Everything index options
+index.warning.header=The Everything index is missing required options:
+index.warning.folderSizes="Folder sizes" — without them folder tiles stay empty (index_folder_size)
+index.warning.fileSizes="File sizes" — without them file sizes are zero (index_size)
+index.warning.dates=Some "Dates" (created/modified/accessed) — tooltips will not show them (index_date_*)
+index.warning.footer=Enable them: Everything → Tools → Options → Indexes (Index files/folders sizes, dates) and let the index build.

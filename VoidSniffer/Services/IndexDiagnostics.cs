@@ -20,7 +20,7 @@ namespace VoidSniffer.Services
                 : EmpiricallyFolderSizesMissing(root);
             if (folderSizesOff)
             {
-                problems.Add("«Размеры папок» — без них тайлы папок будут пустыми (index_folder_size)");
+                problems.Add(Localization.T("index.warning.folderSizes"));
             }
 
             bool fileSizesOff = options.FileSizes.HasValue
@@ -28,25 +28,25 @@ namespace VoidSniffer.Services
                 : EmpiricallyFileSizesMissing(root);
             if (fileSizesOff)
             {
-                problems.Add("«Размеры файлов» — без них размеры файлов будут нулевыми (index_size)");
+                problems.Add(Localization.T("index.warning.fileSizes"));
             }
 
             bool datesOff = options.DateCreated == false || options.DateModified == false || options.DateAccessed == false;
             if (datesOff)
             {
-                problems.Add("Часть «Дат» (создания/изменения/доступа) — без них в подсказке не будет дат (index_date_*)");
+                problems.Add(Localization.T("index.warning.dates"));
             }
 
             if (problems.Count == 0) return null;
 
             var sb = new StringBuilder();
-            sb.AppendLine("В индексе Everything не включены нужные параметры:");
+            sb.AppendLine(Localization.T("index.warning.header"));
             foreach (string p in problems)
             {
                 sb.Append("  • ").AppendLine(p);
             }
             sb.AppendLine();
-            sb.AppendLine("Включите их: Everything → Сервис → Параметры → «Индексация» (Index files/folders sizes, dates) и дайте индексу построиться.");
+            sb.Append(Localization.T("index.warning.footer"));
             return sb.ToString();
         }
 

@@ -6,39 +6,86 @@ namespace VoidSniffer
     public static class Program
     {
         /// <summary>
-        /// Главная точка входа для приложения. Поддерживает аргументы командной строки:
+        /// Главная точка входа. Аргументы командной строки:
         /// <code>VoidSniffer.exe scan "C:\Program Files"</code>
         /// <code>VoidSniffer.exe scan C:\</code>
-        /// <code>VoidSniffer.exe "C:\Users"</code>
+        /// <code>VoidSniffer.exe --lang=en scan C:\</code>
         /// </summary>
         [STAThread]
         static void Main(string[] args)
         {
+            Localization.Initialize(ParseLanguage(args));
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new MainForm(ParseScanPath(args)));
         }
 
-        /// <summary>Extracts the path to scan from the command line, or null.</summary>
+        /// <summary>Path to scan from the command line, or null.</summary>
         public static string ParseScanPath(string[] args)
         {
-            if (args == null || args.Length == 0) return null;
+            if (args == null) return null;
 
-            int index = 0;
-            if (string.Equals(args[0], "scan", StringComparison.OrdinalIgnoreCase))
+            for (int i = 0; i < args.Length; i++)
             {
-                index = 1;
+                string arg = args[i];
+
+                if (arg.StartsWith("--scan=", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Clean(arg.Substring("--scan=".Length));
+                }
+                if (string.Equals(arg, "--scan", StringComparison.OrdinalIgnoreCase))
+                {
+                    return i + 1 < args.Length ? Clean(args[i + 1]) : null;
+                }
+                if (string.Equals(arg, "scan", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                if (arg.StartsWith("--lang=", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                if (string.Equals(arg, "--lang", StringComparison.OrdinalIgnoreCase))
+                {
+                    i++; // skip the language value
+                    continue;
+                }
+                if (arg.StartsWith("--", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                return Clean(arg);
             }
-            else if (args[0].StartsWith("--scan=", StringComparison.OrdinalIgnoreCase))
+            return null;
+        }
+
+        /// <summary>Language code from the command line (--lang=xx or --lang xx), or null.</summary>
+        public static string ParseLanguage(string[] args)
+        {
+            if (args == null) return null;
+
+            for (int i = 0; i < args.Length; i++)
             {
-                string value = args[0].Substring("--scan=".Length).Trim('"');
-                return string.IsNullOrWhiteSpace(value) ? null : value;
+                string arg = args[i];
+                if (arg.StartsWith("--lang=", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Clean(arg.Substring("--lang=".Length));
+                }
+                if (string.Equals(arg, "--lang", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                {
+                    return Clean(args[i + 1]);
+                }
             }
+            return null;
+        }
 
-            if (index >= args.Length) return null;
-
-            string path = args[index];
-            return string.IsNullOrWhiteSpace(path) ? null : path.Trim('"');
+        private static string Clean(string value)
+        {
+            if (value == null) return null;
+            value = value.Trim().Trim('"');
+            return value.Length == 0 ? null : value;
         }
     }
 }

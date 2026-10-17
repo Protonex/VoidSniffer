@@ -48,8 +48,8 @@ namespace VoidSniffer
             InitializeComponent();
             WireEvents();
             ApplyIcons();
+            ApplyLocalization();
             treemap.MaxDepth = _recursionDepth;
-            UpdateDepthLabel();
         }
 
         /// <summary>Assigns the embedded FatCow icons to the toolbar buttons.</summary>
@@ -90,32 +90,20 @@ namespace VoidSniffer
             KeyDown += MainForm_KeyDown;
 
             scanButton.Click += ScanButton_Click;
-            scanButton.ToolTipText = "Сканировать выбранную папку (F5)";
             openButton.Click += (s, e) => OpenButton_Click();
-            openButton.ToolTipText = "Выбрать папку для сканирования";
             pathTextBox.KeyDown += PathTextBox_KeyDown;
 
             backButton.Click += (s, e) => _navigation.GoBack();
-            backButton.ToolTipText = "Назад (Alt+←)";
             forwardButton.Click += (s, e) => _navigation.GoForward();
-            forwardButton.ToolTipText = "Вперёд (Alt+→)";
             upButton.Click += (s, e) => _navigation.ZoomUp();
-            upButton.ToolTipText = "Вверх (Alt+↑)";
             homeButton.Click += (s, e) => _navigation.GoHome();
-            homeButton.ToolTipText = "К корню";
 
             depthDownButton.Click += (s, e) => AdjustDepth(-1);
             depthUpButton.Click += (s, e) => AdjustDepth(1);
-            depthDownButton.ToolTipText = "Меньше уровней вложенности";
-            depthUpButton.ToolTipText = "Больше уровней вложенности";
-            depthLabel.ToolTipText = "Уровней вложенности от текущей папки";
             freeSpaceButton.Click += (s, e) => ToggleFreeSpace();
-            freeSpaceButton.ToolTipText = "Показывать свободное место тома отдельным тайлом";
 
             applyFilterButton.Click += (s, e) => ApplyFilter();
-            applyFilterButton.ToolTipText = "Применить фильтр";
             resetFilterButton.Click += (s, e) => ResetFilter();
-            resetFilterButton.ToolTipText = "Сбросить фильтр";
             nameFilterTextBox.KeyDown += FilterTextBox_KeyDown;
             minSizeTextBox.KeyDown += FilterTextBox_KeyDown;
             maxSizeTextBox.KeyDown += FilterTextBox_KeyDown;
@@ -127,13 +115,103 @@ namespace VoidSniffer
             treemap.HoverChanged += Treemap_HoverChanged;
             treemap.SelectionChanged += Treemap_SelectionChanged;
             treemap.ContextMenuRequested += Treemap_ContextMenuRequested;
+
+            SetupLanguageMenu();
+            Localization.Changed += OnLocalizationChanged;
+        }
+
+        private ToolStripDropDownButton _languageButton;
+
+        private void SetupLanguageMenu()
+        {
+            _languageButton = new ToolStripDropDownButton();
+            _languageButton.Name = "languageButton";
+            _languageButton.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            _languageButton.Alignment = ToolStripItemAlignment.Right;
+            toolStrip.Items.Add(_languageButton);
+            UpdateLanguageMenu();
+        }
+
+        private void UpdateLanguageMenu()
+        {
+            if (_languageButton == null) return;
+
+            _languageButton.DropDownItems.Clear();
+            foreach (LanguageInfo language in Localization.AvailableLanguages())
+            {
+                var item = new ToolStripMenuItem(language.Name);
+                item.Tag = language.Code;
+                item.Checked = string.Equals(language.Code, Localization.Code, StringComparison.OrdinalIgnoreCase);
+                item.Click += (s, e) =>
+                {
+                    var menuItem = (ToolStripMenuItem)s;
+                    Localization.SetLanguage((string)menuItem.Tag);
+                };
+                _languageButton.DropDownItems.Add(item);
+            }
+
+            _languageButton.Text = Localization.Name;
+            _languageButton.ToolTipText = Localization.T("tip.language");
+        }
+
+        private void OnLocalizationChanged(object sender, EventArgs e)
+        {
+            ApplyLocalization();
+
+            if (_fullRoot != null)
+            {
+                ApplyFilter();
+            }
+            else
+            {
+                SetStatus(Localization.T("status.ready", _provider.GetVersion().ToString(3),
+                    _provider.IsSdk3Available() ? " (SDK3)" : string.Empty));
+            }
+        }
+
+        /// <summary>Applies the active language pack to every static UI string.</summary>
+        private void ApplyLocalization()
+        {
+            Text = Localization.T("app.title");
+
+            pathLabel.Text = Localization.T("path.label");
+            scanButton.Text = Localization.T("scan.text");
+            openButton.Text = Localization.T("open.text");
+            backButton.Text = Localization.T("back.text");
+            forwardButton.Text = Localization.T("forward.text");
+            upButton.Text = Localization.T("up.text");
+            homeButton.Text = Localization.T("home.text");
+            depthDownButton.Text = Localization.T("depth.down.text");
+            depthUpButton.Text = Localization.T("depth.up.text");
+            freeSpaceButton.Text = Localization.T("free.text");
+            filterLabel.Text = Localization.T("filter.label");
+            minSizeLabel.Text = Localization.T("filter.min");
+            maxSizeLabel.Text = Localization.T("filter.max");
+            applyFilterButton.Text = Localization.T("filter.apply");
+            resetFilterButton.Text = Localization.T("filter.reset");
+
+            scanButton.ToolTipText = Localization.T("tip.scan");
+            openButton.ToolTipText = Localization.T("tip.open");
+            backButton.ToolTipText = Localization.T("tip.back");
+            forwardButton.ToolTipText = Localization.T("tip.forward");
+            upButton.ToolTipText = Localization.T("tip.up");
+            homeButton.ToolTipText = Localization.T("tip.home");
+            depthDownButton.ToolTipText = Localization.T("tip.depth.down");
+            depthUpButton.ToolTipText = Localization.T("tip.depth.up");
+            depthLabel.ToolTipText = Localization.T("tip.depth.label");
+            freeSpaceButton.ToolTipText = Localization.T("tip.free");
+            applyFilterButton.ToolTipText = Localization.T("tip.apply");
+            resetFilterButton.ToolTipText = Localization.T("tip.reset");
+
+            UpdateDepthLabel();
+            UpdateLanguageMenu();
         }
 
         private void OpenButton_Click()
         {
             using (var dialog = new FolderBrowserDialog())
             {
-                dialog.Description = "Выберите папку для сканирования";
+                dialog.Description = Localization.T("dialog.openFolder.description");
                 dialog.ShowNewFolderButton = false;
                 dialog.SelectedPath = Directory.Exists(pathTextBox.Text) ? pathTextBox.Text : "C:\\";
 
@@ -147,7 +225,7 @@ namespace VoidSniffer
 
         private void UpdateDepthLabel()
         {
-            depthLabel.Text = "Глубина: " + _recursionDepth;
+            depthLabel.Text = Localization.T("depth.label", _recursionDepth);
         }
 
         /// <summary>
@@ -163,7 +241,7 @@ namespace VoidSniffer
             string warning = IndexDiagnostics.BuildWarning(options, _fullRoot);
             if (warning != null)
             {
-                MessageBox.Show(this, warning, "Проверьте параметры индекса Everything",
+                MessageBox.Show(this, warning, Localization.T("index.warning.title"),
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -213,8 +291,8 @@ namespace VoidSniffer
 
             var freeNode = new FileNode
             {
-                Name = "Свободно",
-                FullPath = focus.FullPath + "\\<свободно>",
+                Name = Localization.T("treemap.freeSpace"),
+                FullPath = focus.FullPath + "\\<free-space>",
                 IsFolder = false,
                 IsSynthetic = true,
                 OwnSize = free,
@@ -238,18 +316,18 @@ namespace VoidSniffer
         {
             if (!_provider.IsAvailable())
             {
-                SetStatus("Everything не запущен — запустите его и повторите.");
+                SetStatus(Localization.T("status.everythingNotRunning"));
                 MessageBox.Show(
                     this,
-                    "Не удалось найти окно Everything IPC.\nЗапустите Everything (voidtools) и попробуйте снова.",
-                    "Everything недоступен",
+                    Localization.T("dialog.everythingNotFound.text"),
+                    Localization.T("dialog.everything.title"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
                 return;
             }
 
             string transport = _provider.IsSdk3Available() ? " (SDK3)" : string.Empty;
-            SetStatus("Everything " + _provider.GetVersion().ToString(3) + transport + " — готов. Укажите путь и нажмите «Сканировать».");
+            SetStatus(Localization.T("status.ready", _provider.GetVersion().ToString(3), transport));
 
             if (!string.IsNullOrWhiteSpace(_initialPath))
             {
@@ -334,14 +412,15 @@ namespace VoidSniffer
             string path = (pathTextBox.Text ?? string.Empty).Trim();
             if (path.Length == 0)
             {
-                SetStatus("Укажите путь к папке.");
+                SetStatus(Localization.T("status.needPath"));
                 return;
             }
 
             string normalized = PathUtil.Normalize(path);
             if (!Directory.Exists(normalized))
             {
-                MessageBox.Show(this, "Папка не найдена:\n" + normalized, "Неверный путь",
+                MessageBox.Show(this, Localization.T("dialog.invalidPath.text", normalized),
+                    Localization.T("dialog.invalidPath.title"),
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -350,7 +429,7 @@ namespace VoidSniffer
             var cts = new CancellationTokenSource();
             _cts = cts;
 
-            SetBusy(true, "Запрос к индексу Everything…");
+            SetBusy(true, Localization.T("status.querying"));
 
             // One cheap query loads the root's direct children; the index already knows
             // the exact recursive size of every folder, so the treemap is complete and
@@ -368,9 +447,9 @@ namespace VoidSniffer
                 RefreshView();
 
                 string suffix = loader.TruncatedFolderCount > 0
-                    ? string.Format(" (усечено папок: {0:N0})", loader.TruncatedFolderCount)
+                    ? Localization.T("status.truncated", loader.TruncatedFolderCount)
                     : string.Empty;
-                SetStatus(string.Format("{0} — узлов: {1:N0}, объём: {2}{3}",
+                SetStatus(Localization.T("status.done",
                     normalized, loader.NodeCount, FormatSize(loader.Root.TotalSize), suffix));
 
                 StartAutoExpansion(_fullRoot);
@@ -378,18 +457,19 @@ namespace VoidSniffer
             }
             catch (OperationCanceledException)
             {
-                SetStatus("Операция отменена.");
+                SetStatus(Localization.T("status.canceled"));
             }
             catch (EverythingNotAvailableException ex)
             {
-                SetStatus("Everything недоступен.");
-                MessageBox.Show(this, ex.Message, "Everything недоступен",
+                SetStatus(Localization.T("status.everythingUnavailable"));
+                MessageBox.Show(this, ex.Message, Localization.T("dialog.everything.title"),
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
-                SetStatus("Ошибка: " + ex.Message);
-                MessageBox.Show(this, ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                SetStatus(Localization.T("status.error", ex.Message));
+                MessageBox.Show(this, ex.Message, Localization.T("dialog.error.title"),
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -409,8 +489,10 @@ namespace VoidSniffer
 
             int nodes = RefreshView();
             FilterCriteria criteria = BuildCriteria();
-            string note = criteria.HasActiveFilters ? "  |  фильтр: " + DescribeCriteria(criteria) : string.Empty;
-            SetStatus(string.Format("{0} — узлов: {1:N0}, объём: {2}{3}",
+            string note = criteria.HasActiveFilters
+                ? Localization.T("filter.note", DescribeCriteria(criteria))
+                : string.Empty;
+            SetStatus(Localization.T("status.done",
                 _navigation.Root.FullPath, nodes, FormatSize(_navigation.Root.TotalSize), note));
         }
 
@@ -464,19 +546,19 @@ namespace VoidSniffer
             var parts = new StringBuilder();
             if (!string.IsNullOrWhiteSpace(criteria.NameQuery))
             {
-                parts.Append("имя~'").Append(criteria.NameQuery).Append('\'');
+                parts.Append(Localization.T("filter.name", criteria.NameQuery));
             }
             if (criteria.MinSize.HasValue)
             {
                 if (parts.Length > 0) parts.Append(", ");
-                parts.Append('≥').Append(FormatSize(criteria.MinSize.Value));
+                parts.Append(Localization.T("filter.minPart", FormatSize(criteria.MinSize.Value)));
             }
             if (criteria.MaxSize.HasValue)
             {
                 if (parts.Length > 0) parts.Append(", ");
-                parts.Append('≤').Append(FormatSize(criteria.MaxSize.Value));
+                parts.Append(Localization.T("filter.maxPart", FormatSize(criteria.MaxSize.Value)));
             }
-            return parts.Length == 0 ? "нет" : parts.ToString();
+            return parts.Length == 0 ? Localization.T("filter.none") : parts.ToString();
         }
 
         private static FileNode FindByPath(FileNode root, string fullPath)
@@ -768,7 +850,7 @@ namespace VoidSniffer
             if (_expanding || _loader == null) return;
 
             _expanding = true;
-            SetStatus("Запрос к индексу Everything…");
+            SetStatus(Localization.T("status.querying"));
             try
             {
                 CancellationToken token = _cts != null ? _cts.Token : CancellationToken.None;
@@ -782,13 +864,13 @@ namespace VoidSniffer
             }
             catch (EverythingNotAvailableException ex)
             {
-                SetStatus("Everything недоступен.");
-                MessageBox.Show(this, ex.Message, "Everything недоступен",
+                SetStatus(Localization.T("status.everythingUnavailable"));
+                MessageBox.Show(this, ex.Message, Localization.T("dialog.everything.title"),
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
-                SetStatus("Ошибка: " + ex.Message);
+                SetStatus(Localization.T("status.error", ex.Message));
             }
             finally
             {
@@ -860,11 +942,11 @@ namespace VoidSniffer
         {
             if (e.Node == null) return;
 
-            string kind = e.Node.IsFolder ? "Папка" : "Файл";
+            string kind = Localization.T(e.Node.IsFolder ? "kind.folder" : "kind.file");
             string modified = e.Node.ModifiedTime.HasValue
                 ? "   |   " + e.Node.ModifiedTime.Value.ToString("yyyy-MM-dd HH:mm")
                 : string.Empty;
-            SetStatus(string.Format("{0}: {1}   |   {2}{3}",
+            SetStatus(Localization.T("status.hover",
                 kind, e.Node.FullPath, FormatSize(e.Node.TotalSize), modified));
         }
 
@@ -881,18 +963,7 @@ namespace VoidSniffer
 
         internal static string FormatSize(long bytes)
         {
-            if (bytes < 0) return "0 B";
-            string[] units = { "B", "KB", "MB", "GB", "TB", "PB" };
-            double value = bytes;
-            int unit = 0;
-            while (value >= 1024 && unit < units.Length - 1)
-            {
-                value /= 1024;
-                unit++;
-            }
-            return unit == 0
-                ? string.Format("{0} {1}", bytes, units[unit])
-                : string.Format("{0:0.##} {1}", value, units[unit]);
+            return Treemap.NodeLabelFormatter.FormatSize(bytes < 0 ? 0 : bytes);
         }
     }
 }

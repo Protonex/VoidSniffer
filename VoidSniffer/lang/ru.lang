@@ -1,0 +1,85 @@
+; VoidSniffer language pack (Russian)
+; Encoding: UTF-8. Lines like key=value; use \n for a newline.
+language.code=ru
+language.name=Русский
+language.plural=ru
+
+app.title=VoidSniffer
+
+path.label=Путь:
+scan.text=Сканировать
+open.text=Открыть…
+back.text=Назад
+forward.text=Вперёд
+up.text=Вверх
+home.text=К корню
+depth.down.text=−
+depth.up.text=+
+depth.label=Глубина: {0}
+free.text=Свободно
+filter.label=Фильтр:
+filter.min=Мин, МБ:
+filter.max=Макс, МБ:
+filter.apply=Применить
+filter.reset=Сбросить
+
+tip.scan=Сканировать выбранную папку (F5)
+tip.open=Выбрать папку для сканирования
+tip.back=Назад (Alt+←)
+tip.forward=Вперёд (Alt+→)
+tip.up=Вверх (Alt+↑)
+tip.home=К корню
+tip.depth.down=Меньше уровней вложенности
+tip.depth.up=Больше уровней вложенности
+tip.depth.label=Уровней вложенности от текущей папки
+tip.free=Показывать свободное место тома отдельным тайлом
+tip.apply=Применить фильтр
+tip.reset=Сбросить фильтр
+tip.language=Язык интерфейса
+
+status.ready=Everything {0}{1} — готов. Укажите путь и нажмите «Сканировать».
+status.querying=Запрос к индексу Everything…
+status.needPath=Укажите путь к папке.
+status.done={0} — узлов: {1:N0}, объём: {2}{3}
+status.truncated= (усечено папок: {0:N0})
+status.canceled=Операция отменена.
+status.everythingUnavailable=Everything недоступен.
+status.everythingNotRunning=Everything не запущен — запустите его и повторите.
+status.error=Ошибка: {0}
+status.hover={0}: {1}   |   {2}{3}
+
+kind.folder=Папка
+kind.file=Файл
+
+dialog.invalidPath.title=Неверный путь
+dialog.invalidPath.text=Папка не найдена:\n{0}
+dialog.everything.title=Everything недоступен
+dialog.everythingNotFound.text=Не удалось найти окно Everything IPC.\nЗапустите Everything (voidtools) и попробуйте снова.
+dialog.error.title=Ошибка
+dialog.openFolder.description=Выберите папку для сканирования
+
+filter.note=  |  фильтр: {0}
+filter.none=нет
+filter.name=имя~'{0}'
+filter.minPart=≥{0}
+filter.maxPart=≤{0}
+
+treemap.freeSpace=Свободно
+treemap.onDisk=на диске
+count.folders.one=папка
+count.folders.few=папки
+count.folders.many=папок
+count.files.one=файл
+count.files.few=файла
+count.files.many=файлов
+tooltip.created=Создан
+tooltip.modified=Изменён
+tooltip.accessed=Открыт
+size.units=Б,КБ,МБ,ГБ,ТБ,ПБ
+
+index.warning.title=Проверьте параметры индекса Everything
+index.warning.header=В индексе Everything не включены нужные параметры:
+index.warning.folderSizes=«Размеры папок» — без них тайлы папок будут пустыми (index_folder_size)
+index.warning.fileSizes=«Размеры файлов» — без них размеры файлов будут нулевыми (index_size)
+index.warning.dates=Часть «Дат» (создания/изменения/доступа) — без них в подсказке не будет дат (index_date_*)
+index.warning.footer=Включите их: Everything → Сервис → Параметры → «Индексация» (Index files/folders sizes, dates) и дайте индексу построиться.

@@ -48,19 +48,21 @@ namespace VoidSniffer.Treemap
             {
                 size.Append("   [");
                 size.Append(FormatSize(node.OnDiskSize));
-                size.Append(" на диске]");
+                size.Append(' ');
+                size.Append(Localization.T("treemap.onDisk"));
+                size.Append(']');
             }
             lines.Add(size.ToString());
 
             if (node.IsFolder && node.HasCounts)
             {
-                lines.Add(FormatCount(node.FolderCount, "папка", "папки", "папок") + ", " +
-                          FormatCount(node.FileCount, "файл", "файла", "файлов"));
+                lines.Add(Localization.Plural("count.folders", node.FolderCount) + ", " +
+                          Localization.Plural("count.files", node.FileCount));
             }
 
-            AppendDate(lines, "Создан", node.CreatedTime);
-            AppendDate(lines, "Изменён", node.ModifiedTime);
-            AppendDate(lines, "Открыт", node.LastAccessTime);
+            AppendDate(lines, "tooltip.created", node.CreatedTime);
+            AppendDate(lines, "tooltip.modified", node.ModifiedTime);
+            AppendDate(lines, "tooltip.accessed", node.LastAccessTime);
 
             if (!string.IsNullOrEmpty(node.FullPath))
             {
@@ -70,22 +72,24 @@ namespace VoidSniffer.Treemap
             return lines;
         }
 
-        private static void AppendDate(System.Collections.Generic.IList<string> lines, string label, DateTime? value)
+        private static void AppendDate(System.Collections.Generic.IList<string> lines, string labelKey, DateTime? value)
         {
             if (value.HasValue)
             {
-                lines.Add(label + ": " + value.Value.ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture));
+                lines.Add(Localization.T(labelKey) + ": " +
+                          value.Value.ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture));
             }
         }
 
-        /// <summary>Formats a byte count using binary units.</summary>
+        /// <summary>Formats a byte count using binary units (localized unit names).</summary>
         public static string FormatSize(long bytes)
         {
-            if (bytes < 1024) return bytes.ToString("N0", CultureInfo.CurrentCulture) + " Б";
+            string[] units = GetUnits();
 
-            string[] units = { "КБ", "МБ", "ГБ", "ТБ", "ПБ" };
+            if (bytes < 1024) return bytes.ToString("N0", CultureInfo.CurrentCulture) + " " + units[0];
+
             double value = bytes;
-            int unit = -1;
+            int unit = 0;
             do
             {
                 value /= 1024.0;
@@ -95,6 +99,18 @@ namespace VoidSniffer.Treemap
 
             string format = value >= 100 ? "0" : "0.#";
             return value.ToString(format, CultureInfo.CurrentCulture) + " " + units[unit];
+        }
+
+        private static string[] GetUnits()
+        {
+            string spec = Localization.T("size.units");
+            if (!string.IsNullOrEmpty(spec))
+            {
+                string[] parts = spec.Split(',');
+                for (int i = 0; i < parts.Length; i++) parts[i] = parts[i].Trim();
+                if (parts.Length >= 6) return parts;
+            }
+            return new[] { "Б", "КБ", "МБ", "ГБ", "ТБ", "ПБ" };
         }
 
         /// <summary>Formats a count with the correct Russian plural form.</summary>
