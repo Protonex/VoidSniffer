@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Text;
 
 namespace VoidSniffer.Services
@@ -40,9 +41,23 @@ namespace VoidSniffer.Services
         public bool WindowMaximized { get; set; }
         public string LastPath { get; set; }
 
+        /// <summary>Path to the settings file, always in the executable's directory.</summary>
         public static string FilePath
         {
-            get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "VoidSniffer.ini"); }
+            get
+            {
+                string directory = null;
+                try
+                {
+                    Assembly entry = Assembly.GetEntryAssembly();
+                    if (entry != null) directory = Path.GetDirectoryName(entry.Location);
+                }
+                catch (Exception)
+                {
+                }
+                if (string.IsNullOrEmpty(directory)) directory = AppContext.BaseDirectory;
+                return Path.Combine(directory, "VoidSniffer.ini");
+            }
         }
 
         /// <summary>Loads the settings file, or returns defaults when it is absent.</summary>

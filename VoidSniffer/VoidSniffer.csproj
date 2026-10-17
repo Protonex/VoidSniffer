@@ -108,6 +108,11 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="VoidSniffer.ini">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
     <EmbeddedResource Include="lang\ru.lang" />
     <EmbeddedResource Include="lang\en.lang" />
     <Content Include="lang\ru.lang">
