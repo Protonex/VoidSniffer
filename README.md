@@ -175,13 +175,15 @@ VoidSniffer.exe --lang=en scan "C:\Users"
 
 ---
 
-## Сторонние компоненты и лицензии
+## Лицензия
+
+Проект распространяется под лицензией **MIT** — см. [LICENSE](LICENSE).
+
+Сторонние компоненты:
 
 - **[Everything](https://www.voidtools.com/)** — сторонняя программа, не входит в поставку; используется её IPC-протокол.
 - **FatCow Farm-Fresh Icons** — иконки тулбара, лицензия **CC BY 3.0** (атрибуция: FatCow, http://www.fatcow.com/free-icons).
 - Протокол Everything 1.5 (SDK3) реализован по открытому SDK voidtools (MIT).
-
-Лицензия самого проекта в репозитории пока не задана.
 
 ---
 
